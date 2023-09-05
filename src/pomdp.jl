@@ -133,11 +133,11 @@ function get_train_val_test_indices(indices; train_frac=0.8, val_frac=0.1, test_
     Ntrain = floor(Int, N*train_frac)
     Nval = floor(Int, N*val_frac)
     Ntest = floor(Int, N*test_frac)
+    shuffled_indices = shuffle(rng, indices)
 
-    val_indices = sample(rng, indices, Nval, replace=false)
-    remaining_indices = setdiff(indices, val_indices)
-    test_indices = sample(rng, remaining_indices, Ntest, replace=false)
-    train_indices = sample(rng, setdiff(remaining_indices, test_indices), Ntrain, replace=false)
+    train_indices = shuffled_indices[1:Ntrain]
+    test_indices = shuffled_indices[end-Ntest+1:end]
+    val_indices = shuffled_indices[end-Ntest-Nval+1:end-Ntest]
     return train_indices, val_indices, test_indices
 end
 
@@ -292,3 +292,17 @@ function create_pomdp(scenario_csvs, geo_params, econ_params, obs_actions, Nbins
     pomdp = InfoGatheringPOMDP(train, obs_actions, keys(scenario_csvs), discrete_obs, obs_dists, (o) -> nearest_neighbor_mapping(o, discrete_obs), discount)
     return pomdp, val, test
 end
+
+function create_pomdps_with_different_training_fractions(train_fracs, scenario_csvs, geo_params, econ_params, obs_actions, Nbins; Nsamples_per_bin=10, val_frac=0.1, test_frac=0.1, discount=0.9, rng=Random.GLOBAL_RNG)
+    test = nothing
+    val = nothing
+    pomdps = []
+    for train_frac in train_fracs
+        pomdp, v, t = create_pomdp(scenario_csvs, geo_params, econ_params, obs_actions, Nbins; Nsamples_per_bin, train_frac, val_frac, test_frac, discount, rng)
+        isnothing(val) && (val = v)
+        isnothing(test) && (test = t)
+        push!(pomdps, pomdp)
+    end
+    return pomdps, val, test
+end
+
