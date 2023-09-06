@@ -51,12 +51,16 @@ function POMDPs.update(bu::DiscreteUp, b::DiscreteBelief, a, o)
 
     bp_sum = sum(bp)
 
-    if bp_sum == 0.0
-        error("Failed discrete belief update: new probabilities sum to zero.")
-    end
-
+    # if bp_sum == 0.0
+        # error("Failed discrete belief update: new probabilities sum to zero.")
+    # end
+    
     # Normalize
-    bp ./= bp_sum
+    # bp ./= bp_sum
+
+    if bp_sum > 0.0
+        bp ./= bp_sum
+    end
 
     return DiscreteBelief(pomdp, b.state_list, bp)
 end

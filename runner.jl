@@ -78,17 +78,19 @@ min_particles = 50
 best_current_option = BestCurrentOption(pomdp)
 all = EnsureParticleCount(PlaybackPolicy(obs_actions, best_current_option), best_current_option, min_particles)
 random = EnsureParticleCount(RandomPolicy(;pomdp), best_current_option, min_particles)
+onestepgreedy = EnsureParticleCount(OneStepGreedyPolicy(;pomdp), best_current_option, min_particles)
 sarsop = EnsureParticleCount(sarsop_policy, best_current_option, min_particles)
 
 # Evaluate the policies on the test set 
 best_option_results = eval(pomdp, best_current_option, test) # <---- Uncomment this line to evaluate the policies
 all_results = eval(pomdp, all, test) # <---- Uncomment this line to evaluate the policies
 random_results = eval(pomdp, random, test) # <---- Uncomment this line to evaluate the policies
+onestepgreedy_results = eval(pomdp, onestepgreedy, test) # <---- Uncomment this line to evaluate the policies
 sarsop_results = eval(pomdp, sarsop, test) # <---- Uncomment this line to evaluate the policies
 
 # Save the results
-policy_results = [best_option_results, all_results, random_results, sarsop_results]
-policy_names = ["Best Option Policy", "Observe-All Policy", "Random Policy", "SARSOP Policy"]
+policy_results = [best_option_results, all_results, random_results, onestepgreedy_results, sarsop_results]
+policy_names = ["Best Option Policy", "Observe-All Policy", "Random Policy", "One-Step Greedy Policy", "SARSOP Policy"]
 JLD2.@save joinpath(savedir, "results.jld2") policy_results policy_names
 
 # Alternatively, load from file by uncommenting the following lines
@@ -118,9 +120,10 @@ pomdps, val, test = create_pomdps_with_different_training_fractions(fracs, scena
 policies = [
     (pomdp) -> BestCurrentOption(pomdp),
     (pomdp) -> EnsureParticleCount(PlaybackPolicy(obs_actions, BestCurrentOption(pomdp)), BestCurrentOption(pomdp), min_particles),
+    (pomdp) -> EnsureParticleCount(OneStepGreedyPolicy(;pomdp), BestCurrentOption(pomdp), min_particles),
     (pomdp) -> EnsureParticleCount(solve(SARSOPSolver(), pomdp), BestCurrentOption(pomdp), min_particles),
 ]
-policy_names = ["Best Option Policy", "Observe-All Policy", "SARSOP Policy"]
+policy_names = ["Best Option Policy", "Observe-All Policy", "One-Step Greedy Policy", "SARSOP Policy"]
 
 # Solve the policies and evaluate the results #<---- Uncomment the below lines to solve and eval the policies
 results = Dict()

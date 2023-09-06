@@ -231,6 +231,9 @@ POMDPs.stateindex(m::InfoGatheringPOMDP, s) = m.state_map[s]
 POMDPs.actions(m::InfoGatheringPOMDP) = m.actions
 POMDPs.actionindex(m::InfoGatheringPOMDP, a) = m.action_map[a]
 POMDPs.observations(m::InfoGatheringPOMDP) = m.observations
+function POMDPs.observations(m::InfoGatheringPOMDP, a) 
+    filter(x->x==a, m.observations)
+end
 POMDPs.obsindex(m::InfoGatheringPOMDP, o) = m.obs_map[o]
 POMDPs.discount(m::InfoGatheringPOMDP) = m.discount_factor
 POMDPs.isterminal(m::InfoGatheringPOMDP, s) = s == :terminal
