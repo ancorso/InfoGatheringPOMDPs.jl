@@ -73,26 +73,26 @@ end
 end
 
 function lookahead(𝒫, U, b, a, up)
-	r = sum(reward(𝒫, s, a)*b.b[i] for (i,s) in enumerate(states(𝒫))) 
-	Posa(o,s,a) = sum(obs_weight(𝒫, s, a, s′, o)*ps′ for (s′, ps′) in transition(𝒫, s, a)) 
-	Poba(o,b,a) = sum(b.b[i]*Posa(o,s,a) for (i,s) in enumerate(states(𝒫)))
-	return r + discount(𝒫)*sum([Poba(o,b,a)*U(update(up, b, a, o).b) for o in observations(𝒫, a)], init=0) 
+    r = sum(reward(𝒫, s, a)*b.b[i] for (i,s) in enumerate(states(𝒫))) 
+    Posa(o,s,a) = sum(obs_weight(𝒫, s, a, s′, o)*ps′ for (s′, ps′) in transition(𝒫, s, a)) 
+    Poba(o,b,a) = sum(b.b[i]*Posa(o,s,a) for (i,s) in enumerate(states(𝒫)))
+    return r + discount(𝒫)*sum([Poba(o,b,a)*U(update(up, b, a, o).b) for o in observations(𝒫, a)], init=0) 
 end 
 
 function greedy(𝒫, U, b) 
     As = actions(𝒫)
     up = DiscreteUp(𝒫)
-	u, a = findmax(a->lookahead(𝒫, U, b, a, up), As) 
-	return (a=As[a], u=u) 
+    u, a = findmax(a->lookahead(𝒫, U, b, a, up), As) 
+    return (a=As[a], u=u) 
 end 
 
 function greedy(π, b) 
-	U(b) = utility(π, b) 
-	return greedy(π.pomdp, U, b) 
+    U(b) = utility(π, b) 
+    return greedy(π.pomdp, U, b) 
 end
 
 function utility(π::OneStepGreedyPolicy, b)
-	return maximum([b ⋅ [reward(π.pomdp, s, a) for s in states(π.pomdp)] for a in π.pomdp.terminal_actions])
+    return maximum([b ⋅ [reward(π.pomdp, s, a) for s in states(π.pomdp)] for a in π.pomdp.terminal_actions])
 end
 
 POMDPs.action(π::OneStepGreedyPolicy, b::DiscreteBelief) = greedy(π, b).a

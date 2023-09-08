@@ -53,7 +53,7 @@ function parseCSV(
     scenario_csvs,          # Dictionary mapping scenarios to filenames of the CSVs
     geo_params,             # Vector of symbols that represent the geological parameters
     econ_params,            # Vector of symbols that represent the economic parameters
-	return_symbol = :NPV,  		 # The symbol that represents the value of the state/scenario
+    return_symbol = :NPV,  		 # The symbol that represents the value of the state/scenario
     )
 
     # Load the CSVs into dataframes
@@ -75,24 +75,24 @@ function parseCSV(
     end
 
     shared_syms = setdiff(state_symbols, scenario_dependent_symbols)
-	states = Dict{Symbol, Float64}[]
-	sindices = Dict()
+    states = Dict{Symbol, Float64}[]
+    sindices = Dict()
 
     # for keep track of the unique geological and economic realizations
     geos = Dict()
     econs = Dict()
 
-	# Loop over the data from each scenario
-	for (scenario, data) in dfs
+    # Loop over the data from each scenario
+    for (scenario, data) in dfs
         # Loop over each row (sample)
-		for i=1:length(data[!, return_symbol])
+        for i=1:length(data[!, return_symbol])
             # Initialize the state with the values from the current data and get the index
-			s = Dict(s => data[i, s] for s in shared_syms)
-			if !haskey(sindices, s)
-				push!(states, s)
-				sindices[deepcopy(s)] = length(states)
-			end
-			sindex = sindices[s]
+            s = Dict(s => data[i, s] for s in shared_syms)
+            if !haskey(sindices, s)
+                push!(states, s)
+                sindices[deepcopy(s)] = length(states)
+            end
+            sindex = sindices[s]
 
             # Keep track of the unique geological realizations
             geo = Dict(s => data[i, s] for s in geo_params)
@@ -110,19 +110,19 @@ function parseCSV(
             econindex = econs[econ]
             states[sindex][:EconID] = econindex
 
-			# store the NPV for the current scenario
-			ret = data[i, return_symbol]
-			states[sindex][scenario] = ret
+            # store the NPV for the current scenario
+            ret = data[i, return_symbol]
+            states[sindex][scenario] = ret
 
-			# Store the scenario dependent symbols
-			for sym in scenario_dependent_symbols
-				key = Symbol("$(sym)_$(scenario)")
-				val = data[i, sym]
-				states[sindex][key] = val
-			end
-		end
-	end
-	return states
+            # Store the scenario dependent symbols
+            for sym in scenario_dependent_symbols
+                key = Symbol("$(sym)_$(scenario)")
+                val = data[i, sym]
+                states[sindex][key] = val
+            end
+        end
+    end
+    return states
 end
 
 # Function to get train, val, test splits over a set of indices
@@ -205,6 +205,7 @@ struct InfoGatheringPOMDP <: POMDP{Any, Any, Any}
     terminal_actions        # Vector of terminal actions
     observations            # Vector of observations
     obs_map                 # Map from observation to index
+    action_obs_map          # Map from actions to possible observations   
     obs_dists               # Map from (state, action) to observation distribution
     obs_abstraction         # Function for mapping continuous observations to discrete observations
     discount_factor         # Discount factor
@@ -218,11 +219,19 @@ struct InfoGatheringPOMDP <: POMDP{Any, Any, Any}
         observations = [:terminal, observations...]
 
         # Create the index maps for quickly looking up indices
-		state_map = Dict(s => i for (i,s) in enumerate(states))
+        state_map = Dict(s => i for (i,s) in enumerate(states))
         action_map = Dict(a => i for (i,a) in enumerate(actions))
         obs_map = Dict(o => i for (i,o) in enumerate(observations))
+
+        # Create the action-observation map
+        action_obs_map = Dict()
+        for a in actions
+            ks = filter(x -> x[2] == a, keys(obs_dists))
+            ods = [obs_dists[k] for k in ks]
+            action_obs_map[a] = unique(vcat([odist.vals for odist in ods]...))
+        end
         
-        new(states, state_map, actions, action_map, terminal_actions, observations, obs_map, obs_dists, obs_abstraction, discount_factor)
+        new(states, state_map, actions, action_map, terminal_actions, observations, obs_map, action_obs_map, obs_dists, obs_abstraction, discount_factor)
     end
 end
 
@@ -231,9 +240,7 @@ POMDPs.stateindex(m::InfoGatheringPOMDP, s) = m.state_map[s]
 POMDPs.actions(m::InfoGatheringPOMDP) = m.actions
 POMDPs.actionindex(m::InfoGatheringPOMDP, a) = m.action_map[a]
 POMDPs.observations(m::InfoGatheringPOMDP) = m.observations
-function POMDPs.observations(m::InfoGatheringPOMDP, a) 
-    filter(x->x==a, m.observations)
-end
+POMDPs.observations(m::InfoGatheringPOMDP, a) = m.action_obs_map[a]
 POMDPs.obsindex(m::InfoGatheringPOMDP, o) = m.obs_map[o]
 POMDPs.discount(m::InfoGatheringPOMDP) = m.discount_factor
 POMDPs.isterminal(m::InfoGatheringPOMDP, s) = s == :terminal
@@ -241,10 +248,10 @@ POMDPs.initialstate(m::InfoGatheringPOMDP) = DiscreteBelief(m, fill(1/length(m.s
 
 function POMDPs.transition(m::InfoGatheringPOMDP, s, a)
     if a in m.terminal_actions
-		return SparseCat([:terminal], [1.0])
-	else
-		return SparseCat([s], [1.0])
-	end
+        return SparseCat([:terminal], [1.0])
+    else
+        return SparseCat([s], [1.0])
+    end
 end
 
 function POMDPs.observation(m::InfoGatheringPOMDP, a, sp)

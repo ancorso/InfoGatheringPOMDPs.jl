@@ -11,7 +11,7 @@ using Random
 using DataStructures
 
 # Define the save directory. This will through an error if the savedir already exists
-savedir="results/test/"
+savedir="results/test2/"
 mkdir(savedir)
 
 # Define the scenarios and corresponding paths to CSV files
@@ -63,8 +63,11 @@ obs_actions = [
 # Set the number of observation bins for each action
 Nbins = [5, fill(2, length(obs_actions[2:end]))...]
 
+# Set the discount factor
+discount_factor = 0.99
+
 # Create the pomdp, the validation and teest sets
-pomdp, val, test = create_pomdp(scenario_csvs, geo_params, econ_params, obs_actions, Nbins, train_frac=0.8, val_frac=0.0, test_frac=0.2, rng=MersenneTwister(0))
+pomdp, val, test = create_pomdp(scenario_csvs, geo_params, econ_params, obs_actions, Nbins, train_frac=0.8, val_frac=0.0, test_frac=0.2, rng=MersenneTwister(0), discount=discount_factor)
 
 # Solve the POMDP using SARSOP
 sarsop_policy = solve(SARSOPSolver(), pomdp) #<---- Uncomment this line to solve the policy
@@ -114,7 +117,7 @@ savefig(p, joinpath(savedir, "policy_comparison.pdf"))
 # Create an array of pomdps, each with a different number of states
 n_geologies = [5, 10, 20, 50, 100, 200]
 fracs = n_geologies ./ 250
-pomdps, val, test = create_pomdps_with_different_training_fractions(fracs, scenario_csvs, geo_params, econ_params, obs_actions, Nbins, val_frac=0.0, test_frac=0.2, rng=MersenneTwister(0))
+pomdps, val, test = create_pomdps_with_different_training_fractions(fracs, scenario_csvs, geo_params, econ_params, obs_actions, Nbins, val_frac=0.0, test_frac=0.2, rng=MersenneTwister(0), discount=discount_factor)
 
 # Define which policies we want to use to compare the results
 policies = [
