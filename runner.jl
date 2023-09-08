@@ -11,7 +11,7 @@ using Random
 using DataStructures
 
 # Define the save directory. This will through an error if the savedir already exists
-savedir="results/test2/"
+savedir="results/test/"
 mkdir(savedir)
 
 # Define the scenarios and corresponding paths to CSV files
