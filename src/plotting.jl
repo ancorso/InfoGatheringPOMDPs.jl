@@ -3,8 +3,8 @@ using StatsBase
 using Plots.Measures
 using DataFrames
 
-function worst_reward(pomdp) 
-    minimum([reward(pomdp, s, a) for a in pomdp.terminal_actions for s in states(pomdp)])
+function expected_loss(pomdp) 
+    mean([reward(pomdp, s, a) * (reward(pomdp, s, a) < 0.0) for a in pomdp.terminal_actions for s in states(pomdp)])
 end
 
 function symbol_histogram(unique_syms, symarray; kwargs...)
@@ -32,17 +32,17 @@ end
 
 function histogram_with_cdf(data, bins=nothing; kwargs...)
     if !isnothing(bins)
-        h = fit(Histogram, data, bins, closed=:right)
+        h = fit(Histogram, data, bins, closed=:left)
     else
-        h = fit(Histogram, data, nbins=10, closed=:right)
+        h = fit(Histogram, data, nbins=10, closed=:left)
     end
     h = StatsBase.normalize(h, mode=:probability)
     edges = h.edges[1]
     counts = h.weights
     cdf_values = cumsum(counts) ./ sum(counts)
-    p = plot(h, seriestype=:bar, ylabel="Probability", ylims=(0,1.1), label="Probability", legend=:topleft, margin=5mm; kwargs...)
+    p = plot(h, seriestype=:bar, ylabel="Probability", ylims=(0,1.1), label="Probability", legend=:topright, margin=5mm; kwargs...)
 
-    plot!(edges[2:end], cdf_values, label="CDF", lw=2)
+    plot!(edges[2:end], 1.0 .- cdf_values, label="1-CDF", lw=2)
     return p
 end
 
@@ -51,8 +51,8 @@ function policy_results_summary(pomdp, results, policy_name)
     
     p_pes = histogram_with_cdf(results[:PES], 0:0.1:1, xlims=(0,1), xlabel="PES", title="$policy_name - PES")
     
-    rlow = worst_reward(pomdp)
-    p_expected_loss = histogram_with_cdf(results[:expected_loss], range(rlow, 0, length=100), xlims=(rlow,0), xlabel="Expected Loss", title="$policy_name - Expected Loss")
+    rexp = expected_loss(pomdp)
+    p_expected_loss = histogram_with_cdf(results[:expected_loss], range(rexp, 0, length=100), xlims=(rexp,0), xlabel="Expected Loss", title="$policy_name - Expected Loss")
 
     all_actions = actions(pomdp)
     all_actions = [a isa Symbol ? string(a) : a.name for a in all_actions]
@@ -65,7 +65,7 @@ function policy_results_summary(pomdp, results, policy_name)
     annotate!(0,0.6,("Mean Correct Scenario: $(round(mean(results[:correct_scenario]), digits=2))", :left))
     annotate!(0,0.5,("Mean Correct Go/NoGo: $(round(mean(results[:correct_gonogo]), digits=2))", :left))
 
-    plot(p_final_action, p_actions, p_data, p_pes, p_expected_loss, layout=(2,3), legend=false, size=(1400,800), left_margin=5mm, right_margin=5mm)
+    plot(p_final_action, p_actions, p_data, p_pes, p_expected_loss, layout=(2,3), size=(1400,800), left_margin=5mm, right_margin=5mm)
 end
 
 function policy_comparison_summary(policy_results, policy_names)
