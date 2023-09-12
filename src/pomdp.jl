@@ -1,14 +1,3 @@
-using CSV
-using DataFrames
-using StatsBase
-using Parameters
-using Distributions
-using Clustering
-using POMDPs
-using POMDPTools
-using ProgressMeter
-using Random
-
 @with_kw struct ObservationAction
     name = ""
     time = 1
@@ -125,35 +114,22 @@ function parseCSV(
     return states
 end
 
-# Function to get train, val, test splits over a set of indices
-function get_train_val_test_indices(indices; train_frac=0.8, val_frac=0.1, test_frac=0.1, rng=Random.GLOBAL_RNG)
-    @assert sum([train_frac, val_frac, test_frac]) <= 1.0
-
-    N = length(indices)
-    Ntrain = floor(Int, N*train_frac)
-    Nval = floor(Int, N*val_frac)
-    Ntest = floor(Int, N*test_frac)
-    shuffled_indices = shuffle(rng, indices)
-
-    train_indices = shuffled_indices[1:Ntrain]
-    test_indices = shuffled_indices[end-Ntest+1:end]
-    val_indices = shuffled_indices[end-Ntest-Nval+1:end-Ntest]
-    return train_indices, val_indices, test_indices
-end
-
-# Function to split states into train, val, test
-function split_states(states; train_frac=0.8, val_frac=0.1, test_frac=0.1, rng=Random.GLOBAL_RNG)
+# Generate k folds of the data
+function kfolds(states, nfolds; train_frac = 1.0-1.0/nfolds, rng=Random.GLOBAL_RNG)
     geo_indices = unique([s[:GeoID] for s in states])
-    # econ_indices = unique([s[:EconID] for s in states])
-
-    train_geo, val_geo, test_geo = get_train_val_test_indices(geo_indices; train_frac, val_frac, test_frac, rng)
-    # train_econ, val_econ, test_econ = get_train_val_test_indices(econ_indices; train_frac, val_frac, test_frac)
-
-    train = [s for s in states if s[:GeoID] in train_geo] # && s[:EconID] in train_econ]
-    val = [s for s in states if s[:GeoID] in val_geo]# && s[:EconID] in val_econ]
-    test = [s for s in states if s[:GeoID] in test_geo]# && s[:EconID] in test_econ]
-
-    return train, val, test
+    shuffled_indices = shuffle(rng, geo_indices)
+    N = length(shuffled_indices)
+    test_size = floor(Int, N/nfolds)
+    train_size = floor(Int, N*train_frac)
+    test_sets = []
+    train_sets = []
+    for i=1:nfolds
+        test = shuffled_indices[(i-1)*test_size+1:i*test_size]
+        train = shuffled_indices[[j for j in 1:N if j ∉ test]][1:train_size]
+        push!(test_sets, [s for s in states if s[:GeoID] in test])
+        push!(train_sets, [s for s in states if s[:GeoID] in train])
+    end
+    return train_sets, test_sets
 end
 
 # Determine the set of discrete observations
@@ -161,7 +137,7 @@ function get_discrete_observations(states, obs_actions, Nbins=fill(2,length(obs_
     discrete_obs = []
     for (a, Nbin) in zip(obs_actions, Nbins)
         obss = [rand(rng, a.obs_dist(rand(rng, states))) for _=1:Nsamples_per_bin*Nbin]
-        X=hcat([collect(values(o)) for o in obss]...)
+        X = hcat([collect(values(o)) for o in obss]...)
         res = kmeans(X, Nbin; rng)
         append!(discrete_obs, [Dict(zip(keys(obss[1]), res.centers[:, i])) for i in 1:Nbin])
     end
@@ -186,7 +162,7 @@ end
 
 function create_observation_distributions(states, actions, discrete_obs, Nsamples=fill(10, lenth(actions)); rng=Random.GLOBAL_RNG)
     obs_dists = Dict()
-    @showprogress "Creating discrete observation distributions..." for s in states
+    for s in states
         for (a, Nsample) in zip(actions, Nsamples)
             os = [nearest_neighbor_mapping(rand(rng, a.obs_dist(s)), discrete_obs) for _=1:Nsample]
             probs = [sum([o == o′ for o′ in os])/Nsample for o in discrete_obs]
@@ -285,34 +261,44 @@ function POMDPs.gen(m::InfoGatheringPOMDP, s, a, rng)
     return (;sp, o, r)
 end
 
-function create_pomdp(scenario_csvs, geo_params, econ_params, obs_actions, Nbins; Nsamples_per_bin=10, train_frac=0.8, val_frac=0.1, test_frac=0.1, discount=0.9, rng=Random.GLOBAL_RNG)
+function create_pomdps(scenario_csvs, geo_params, econ_params, obs_actions, Nbins; Nsamples_per_bin=10, nfolds=5, train_frac = 1.0 - 1.0/nfolds, discount=0.9, rng=Random.GLOBAL_RNG)
     # Parse all of the states from the csv files
     statevec = parseCSV(scenario_csvs, geo_params, econ_params)
 
-    # Split the states into train, val, test
-    train, val, test = split_states(statevec; train_frac, val_frac, test_frac, rng)
+    train_sets, test_sets = kfolds(statevec, nfolds; rng)
+    pomdps = Array{Any}(undef, nfolds)
+    p = Progress(nfolds, 1, "Creating POMDPs...")
+    Threads.@threads for i in 1:nfolds
+        # Create a specific rng for each thread
+        thread_rng = MersenneTwister(i)
 
-    # Discretize the observations
-    discrete_obs = get_discrete_observations(train, obs_actions, Nbins; rng)
+        # Generate the train set by combining all of the folds except the ith one
+        train = train_sets[i]
 
-    # Create categorical observation distributions
-    obs_dists = create_observation_distributions(train, obs_actions, discrete_obs, Nbins .* Nsamples_per_bin; rng)
+        # Discretize the observations
+        discrete_obs = get_discrete_observations(train, obs_actions, Nbins; rng=thread_rng)
 
-    # Make the POMDP and return the val and test sets
-    pomdp = InfoGatheringPOMDP(train, obs_actions, keys(scenario_csvs), discrete_obs, obs_dists, (o) -> nearest_neighbor_mapping(o, discrete_obs), discount)
-    return pomdp, val, test
+        # Create categorical observation distributions
+        obs_dists = create_observation_distributions(train, obs_actions, discrete_obs, Nbins .* Nsamples_per_bin; rng=thread_rng)
+
+        # Make the POMDP and return the val and test sets
+        pomdps[i] = InfoGatheringPOMDP(train, obs_actions, keys(scenario_csvs), discrete_obs, obs_dists, (o) -> nearest_neighbor_mapping(o, discrete_obs), discount)
+        
+        # Update the progress bar
+        next!(p)
+    end
+    finish!(p)
+    return pomdps, test_sets
 end
 
-function create_pomdps_with_different_training_fractions(train_fracs, scenario_csvs, geo_params, econ_params, obs_actions, Nbins; Nsamples_per_bin=10, val_frac=0.1, test_frac=0.1, discount=0.9, rng=Random.GLOBAL_RNG)
-    test = nothing
-    val = nothing
-    pomdps = []
+function create_pomdps_with_different_training_fractions(train_fracs, scenario_csvs, geo_params, econ_params, obs_actions, Nbins; Nsamples_per_bin=10, nfolds=5, discount=0.9, rng=Random.GLOBAL_RNG)
+    pomdps_per_ngeo = []
+    test_sets_per_ngeo = []
     for train_frac in train_fracs
-        pomdp, v, t = create_pomdp(scenario_csvs, geo_params, econ_params, obs_actions, Nbins; Nsamples_per_bin, train_frac, val_frac, test_frac, discount, rng)
-        isnothing(val) && (val = v)
-        isnothing(test) && (test = t)
-        push!(pomdps, pomdp)
+        pomdps, test_sets = create_pomdps(scenario_csvs, geo_params, econ_params, obs_actions, Nbins; Nsamples_per_bin, nfolds, train_frac, discount, rng=deepcopy(rng))
+        push!(pomdps_per_ngeo, pomdps)
+        push!(test_sets_per_ngeo, test_sets)
     end
-    return pomdps, val, test
+    return pomdps_per_ngeo, test_sets_per_ngeo
 end
 

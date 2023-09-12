@@ -1,9 +1,4 @@
-using Plots; default(fontfamily="Computer Modern", framestyle=:box)
-using StatsBase
-using Plots.Measures
-using DataFrames
-
-function expected_loss(pomdp) 
+function initial_expected_loss(pomdp) 
     mean([reward(pomdp, s, a) * (reward(pomdp, s, a) < 0.0) for a in pomdp.terminal_actions for s in states(pomdp)])
 end
 
@@ -51,7 +46,7 @@ function policy_results_summary(pomdp, results, policy_name)
     
     p_pes = histogram_with_cdf(results[:PES], 0:0.1:1, xlims=(0,1), xlabel="PES", title="$policy_name - PES")
     
-    rexp = expected_loss(pomdp)
+    rexp = initial_expected_loss(pomdp)
     p_expected_loss = histogram_with_cdf(results[:expected_loss], range(rexp, 0, length=100), xlims=(rexp,0), xlabel="Expected Loss", title="$policy_name - Expected Loss")
 
     all_actions = actions(pomdp)

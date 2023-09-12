@@ -1,6 +1,3 @@
-using POMDPs
-using LinearAlgebra
-
 reset_policy!(policy) = nothing
 
 struct BestCurrentOption <: Policy
@@ -8,8 +5,8 @@ struct BestCurrentOption <: Policy
 end
 
 function POMDPs.action(p::BestCurrentOption, b::DiscreteBelief)
-    action_values = [sum([b*reward(p.pomdp, s, a) for (b, s) in zip(b.b, pomdp.states)]) for a in pomdp.terminal_actions]
-    return pomdp.terminal_actions[argmax(action_values)]
+    action_values = [sum([b*reward(p.pomdp, s, a) for (b, s) in zip(b.b, p.pomdp.states)]) for a in p.pomdp.terminal_actions]
+    return p.pomdp.terminal_actions[argmax(action_values)]
 end
 
 @with_kw struct EnsureParticleCount <: Policy
@@ -31,19 +28,19 @@ function POMDPs.action(p::EnsureParticleCount, b::DiscreteBelief)
     end
 end
 
-@with_kw mutable struct PlaybackPolicy <: Policy
+@with_kw mutable struct FixedPolicy <: Policy
     actions::Vector
     backup_policy::Policy
     i::Int = 1
-    PlaybackPolicy(actions, backup_policy) = new(actions, backup_policy, 1)
+    FixedPolicy(actions, backup_policy) = new(actions, backup_policy, 1)
 end
 
-function reset_policy!(policy::PlaybackPolicy)
+function reset_policy!(policy::FixedPolicy)
     policy.i = 1
     reset_policy!(policy.backup_policy)
 end
 
-function POMDPs.action(p::PlaybackPolicy, b)
+function POMDPs.action(p::FixedPolicy, b)
     if p.i > length(p.actions)
         a = action(p.backup_policy, b)
     else
@@ -53,15 +50,14 @@ function POMDPs.action(p::PlaybackPolicy, b)
     return a
 end
 
-
-@with_kw struct RandomPolicy <: Policy
+@with_kw struct RandPolicy <: Policy
     pomdp::InfoGatheringPOMDP
     best_current_option::BestCurrentOption = BestCurrentOption(pomdp)
 end
 
-function POMDPs.action(p::RandomPolicy, b)
+function POMDPs.action(p::RandPolicy, b)
     a = rand(actions(p.pomdp))
-    if a in pomdp.terminal_actions
+    if a in p.pomdp.terminal_actions
         return action(p.best_current_option, b)
     else
         return a

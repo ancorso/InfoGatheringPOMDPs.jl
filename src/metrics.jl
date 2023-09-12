@@ -1,12 +1,8 @@
-include("discrete_updater.jl")
-
 function Simulators.discounted_reward(history; pomdp)
     γ = discount(pomdp)
-    disc = 1.0
     r_total = 0.0
     for s in history
-        r_total += disc*s.r
-        disc *= γ
+        r_total += s.r*γ^s.t
     end
     return r_total
 end
@@ -85,7 +81,8 @@ function eval_single(pomdp, policy, s, updater = DiscreteUp(pomdp), b0 = initial
             bp = update(updater, b, a, o)
         end
         push!(history, (;s, a, sp, o, r, b, bp, t))
-        t = t+1
+        dt = a isa ObservationAction ? a.time : 0
+        t = t+dt
         s = sp
         b = bp
     end
@@ -102,11 +99,18 @@ function eval_single(pomdp, policy, s, updater = DiscreteUp(pomdp), b0 = initial
     return results
 end
 
-function eval(pomdp, policy, states, updater = DiscreteUp(pomdp), b0 = initialstate(pomdp); rng=Random.GLOBAL_RNG)
-    results = []
-    @showprogress for s in states
-        push!(results, eval_single(pomdp, policy, s, updater, b0; rng))
+function eval_kfolds(pomdps, policy_fn, test_sets; rng=Random.GLOBAL_RNG)
+    Ntest_sets = length.(test_sets)
+    test_starts = [1, (cumsum(Ntest_sets)[1:end-1] .+ 1)...]
+    results = Array{Any}(undef, sum(Ntest_sets))
+    p = Progress(sum(Ntest_sets), 1, "Evaluating policy on test sets...")
+    Threads.@threads for (i, (pomdp, test_set)) in collect(enumerate(zip(pomdps, test_sets)))
+        policy = policy_fn(pomdp)
+        for (j, s) in enumerate(test_set)
+            results[test_starts[i] + j - 1] = eval_single(pomdp, policy, s; rng)
+            next!(p)
+        end
     end
-    reset_policy!(policy)
+    finish!(p)
     return Dict(k => [r[k] for r in results] for k in keys(results[1]))
 end
