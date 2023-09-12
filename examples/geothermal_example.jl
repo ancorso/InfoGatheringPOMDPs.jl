@@ -75,31 +75,31 @@ random_policy(pomdp) = EnsureParticleCount(RandPolicy(;pomdp), BestCurrentOption
 sarsop_policy(pomdp) = EnsureParticleCount(solve(SARSOPSolver(), pomdp), BestCurrentOption(pomdp), min_particles)
 
 # combine policies into a list
-policies = [random_policy] #[best_current_option_policy, all_policy, random_policy, sarsop_policy] # onestepgreedy_policy
-policy_names = ["Random Policy"] #["Best Option Policy", "Observe-All Policy", "Random Policy", "SARSOP Policy"] # "One-Step Greedy Policy"
+policies = [best_current_option_policy, all_policy, random_policy, sarsop_policy] # onestepgreedy_policy
+policy_names = ["Best Option Policy", "Observe-All Policy", "Random Policy", "SARSOP Policy"] # "One-Step Greedy Policy"
 
-# # Evaluate the policies on the test set 
-# policy_results = [] # <---- Uncomment this block to evaluate the policies
-# for (policy, policy_name) in zip(policies, policy_names)
-#     println("Evaluating policy: ", policy_name, "...")
-#     push!(policy_results, eval_kfolds(pomdps, policy, test_sets))
-# end
+# Evaluate the policies on the test set 
+policy_results = [] # <---- Uncomment this block to evaluate the policies
+for (policy, policy_name) in zip(policies, policy_names)
+    println("Evaluating policy: ", policy_name, "...")
+    push!(policy_results, eval_kfolds(pomdps, policy, test_sets))
+end
 
-# # Save the results
-# JLD2.@save joinpath(savedir, "results.jld2") policy_results policy_names
+# Save the results
+JLD2.@save joinpath(savedir, "results.jld2") policy_results policy_names
 
-# # Alternatively, load from file by uncommenting the following lines
-# # results_file = JLD2.load(joinpath(savedir, "results.jld2")) # <---- Uncomment this line to load the results from file
-# # policy_results = results_file["policy_results"] # <---- Uncomment this line to load the results from file
-# # policy_names = results_file["policy_names"] # <---- Uncomment this line to load the results from file
+# Alternatively, load from file by uncommenting the following lines
+# results_file = JLD2.load(joinpath(savedir, "results.jld2")) # <---- Uncomment this line to load the results from file
+# policy_results = results_file["policy_results"] # <---- Uncomment this line to load the results from file
+# policy_names = results_file["policy_names"] # <---- Uncomment this line to load the results from file
 
-# # Plot the results
-# for (policy_result, policy_name) in zip(policy_results, policy_names)
-#     p = policy_results_summary(pomdps[1], policy_result, policy_name)
-#     savefig(p, joinpath(savedir, policy_name * ".pdf"))
-# end
-# p = policy_comparison_summary(policy_results, policy_names)
-# savefig(p, joinpath(savedir, "policy_comparison.pdf"))
+# Plot the results
+for (policy_result, policy_name) in zip(policy_results, policy_names)
+    p = policy_results_summary(pomdps[1], policy_result, policy_name)
+    savefig(p, joinpath(savedir, policy_name * ".pdf"))
+end
+p = policy_comparison_summary(policy_results, policy_names)
+savefig(p, joinpath(savedir, "policy_comparison.pdf"))
 
 
 ###########################################################################
