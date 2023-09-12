@@ -9,7 +9,7 @@ git clone https://github.com/ancorso/InfoGatheringPOMDPs.git
 
 Add (or `dev`) the package to julia. Start `julia`, then
 ```
-]add InfoGatheringPOMDPs
+]add ./InfoGatheringPOMDPs
 ```
 
 ## Running an example
