@@ -68,9 +68,9 @@ pomdps, test_sets = create_pomdps(scenario_csvs, geo_params, econ_params, obs_ac
 
 # Define the rest of the policies
 min_particles = 50
-scen7_pol(pomdp) = PlaybackPolicy([:Scenario_7], FunctionPolicy((b)->nothing))
-scen11_pol(pomdp) = PlaybackPolicy([:Scenario_11], FunctionPolicy((b)->nothing))
-scen13_pol(pomdp) = PlaybackPolicy([:Scenario_13], FunctionPolicy((b)->nothing))
+scen7_pol(pomdp) = FixedPolicy([:Scenario_7], FunctionPolicy((b)->nothing))
+scen11_pol(pomdp) = FixedPolicy([:Scenario_11], FunctionPolicy((b)->nothing))
+scen13_pol(pomdp) = FixedPolicy([:Scenario_13], FunctionPolicy((b)->nothing))
 all_policy(pomdp) = EnsureParticleCount(FixedPolicy(obs_actions, BestCurrentOption(pomdp)), BestCurrentOption(pomdp), min_particles)
 random_policy(pomdp) = EnsureParticleCount(RandPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
 onestepgreedy_policy(pomdp) = EnsureParticleCount(OneStepGreedyPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
