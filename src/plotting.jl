@@ -63,6 +63,37 @@ function policy_results_summary(pomdp, results, policy_name)
     plot(p_final_action, p_actions, p_data, p_pes, p_expected_loss, layout=(2,3), size=(1400,800), left_margin=5mm, right_margin=5mm)
 end
 
+function policy_sankey_diagram(pomdp, results, policy_name)
+    max_traj_length = maximum(length.(results[:actions]))
+
+    # Count up the flow of actions
+    obs = [count(traj[i] isa ObservationAction for traj in results[:actions] if length(traj) >= i) for i = 1:max_traj_length]
+    abandon = [count(traj[i] == :abandon for traj in results[:actions] if length(traj) >= i) for i = 1:max_traj_length]
+    select = [count(!(traj[i] isa ObservationAction) && traj[i] != :abandon for traj in results[:actions] if length(traj) >= i) for i = 1:max_traj_length]
+    max_length = 10
+
+    # Turn it into a set of source and destination nodes
+    src = []
+    dst = []
+    weights = []
+    node_labels = ["Execute", "Abandon"]
+    for i=1:max_length
+        push!(node_labels, "Action $i")
+        if i==max_length
+            append!(src, i+2, i+2)
+            append!(dst, 1, 2)
+            append!(weights, sum(select[i:end]), sum(abandon[i:end]))
+        else
+            append!(src, i+2, i+2, i+2)
+            append!(dst, i+3, 1, 2)
+            append!(weights, obs[i], select[i], abandon[i])
+        end
+    end
+
+    # plot the results
+    sankey(src, dst, weights, size=(1200,1200); node_labels, compact=true, label_position=:top)
+end
+
 function policy_comparison_summary(policy_results, policy_names)
     bottom_margin = 0.6*maximum(length.(policy_names))*mm
     p_reward = bar(policy_names, [mean(r[:reward]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Discounted Reward", title="Mean Discounted Reward", legend=false)
@@ -91,4 +122,5 @@ function train_states_comparison_summary(results)
     end
     plot(p_reward, p_obs_cost, p_num_obs, p_correct_scenario, p_correct_gonogo, p_legend, layout=(2,3),size=(1400,800), margin=5mm)
 end
+
 

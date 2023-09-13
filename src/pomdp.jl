@@ -219,6 +219,7 @@ POMDPs.observations(m::InfoGatheringPOMDP) = m.observations
 POMDPs.observations(m::InfoGatheringPOMDP, a) = m.action_obs_map[a]
 POMDPs.obsindex(m::InfoGatheringPOMDP, o) = m.obs_map[o]
 POMDPs.discount(m::InfoGatheringPOMDP) = m.discount_factor
+POMDPs.discount(m::InfoGatheringPOMDP, a) = a isa ObservationAction ? m.discount_factor^a.time : 1.0   
 POMDPs.isterminal(m::InfoGatheringPOMDP, s) = s == :terminal
 POMDPs.initialstate(m::InfoGatheringPOMDP) = DiscreteBelief(m, fill(1/length(m.states), length(m.states)))
 

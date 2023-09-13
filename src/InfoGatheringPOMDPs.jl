@@ -13,6 +13,7 @@ using Random
 using LinearAlgebra
 using Plots; default(fontfamily="Computer Modern", framestyle=:box)
 using Plots.Measures
+using SankeyPlots
 
 
 export DiscreteUp
@@ -29,7 +30,7 @@ include("policies.jl")
 export discounted_reward, observation_cost, number_observed, correct_scenario, correct_gonogo, PES, expected_loss, eval_single, eval_kfolds
 include("metrics.jl")
 
-export policy_results_summary, policy_comparison_summary, train_states_comparison_summary
+export policy_results_summary, policy_comparison_summary, train_states_comparison_summary, policy_sankey_diagram
 include("plotting.jl")
 
 end

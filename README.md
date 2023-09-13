@@ -20,7 +20,6 @@ julia examples/geothermal_example.jl
 
 ## Future Work
 * Make a version of the SARSOP policy that targets a particular PES
-* Fork NativeSarsop and add proper discounting for the actions
 * Flow diagram for actions and abandon
 
 

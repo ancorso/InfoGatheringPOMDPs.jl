@@ -104,9 +104,9 @@ function eval_kfolds(pomdps, policy_fn, test_sets; rng=Random.GLOBAL_RNG)
     test_starts = [1, (cumsum(Ntest_sets)[1:end-1] .+ 1)...]
     results = Array{Any}(undef, sum(Ntest_sets))
     p = Progress(sum(Ntest_sets), 1, "Evaluating policy on test sets...")
-    Threads.@threads for (i, (pomdp, test_set)) in collect(enumerate(zip(pomdps, test_sets)))
+    for (i, (pomdp, test_set)) in collect(enumerate(zip(pomdps, test_sets)))
         policy = policy_fn(pomdp)
-        for (j, s) in enumerate(test_set)
+        Threads.@threads for (j, s) in collect(enumerate(test_set))
             results[test_starts[i] + j - 1] = eval_single(pomdp, policy, s; rng)
             next!(p)
         end

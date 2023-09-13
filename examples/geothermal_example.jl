@@ -68,15 +68,17 @@ pomdps, test_sets = create_pomdps(scenario_csvs, geo_params, econ_params, obs_ac
 
 # Define the rest of the policies
 min_particles = 50
-best_current_option_policy(pomdp) = BestCurrentOption(pomdp) #PlaybackPolicy([:Scenario_7], FunctionPolicy((b)->nothing))
+scen7_pol(pomdp) = PlaybackPolicy([:Scenario_7], FunctionPolicy((b)->nothing))
+scen11_pol(pomdp) = PlaybackPolicy([:Scenario_11], FunctionPolicy((b)->nothing))
+scen13_pol(pomdp) = PlaybackPolicy([:Scenario_13], FunctionPolicy((b)->nothing))
 all_policy(pomdp) = EnsureParticleCount(FixedPolicy(obs_actions, BestCurrentOption(pomdp)), BestCurrentOption(pomdp), min_particles)
 random_policy(pomdp) = EnsureParticleCount(RandPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
-# onestepgreedy_policy(pomdp) = EnsureParticleCount(OneStepGreedyPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
+onestepgreedy_policy(pomdp) = EnsureParticleCount(OneStepGreedyPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
 sarsop_policy(pomdp) = EnsureParticleCount(solve(SARSOPSolver(), pomdp), BestCurrentOption(pomdp), min_particles)
 
 # combine policies into a list
-policies = [best_current_option_policy, all_policy, random_policy, sarsop_policy] # onestepgreedy_policy
-policy_names = ["Best Option Policy", "Observe-All Policy", "Random Policy", "SARSOP Policy"] # "One-Step Greedy Policy"
+policies = [scen7_pol, scen11_pol, scen13_pol, all_policy, random_policy, onestepgreedy_policy, sarsop_policy]
+policy_names = ["Scenario 7", "Scenario 11", "Scenario 13", "Observe-All Policy", "Random Policy", "One-Step Greedy Policy", "SARSOP Policy"]
 
 # Evaluate the policies on the test set 
 policy_results = [] # <---- Uncomment this block to evaluate the policies
@@ -89,14 +91,17 @@ end
 JLD2.@save joinpath(savedir, "results.jld2") policy_results policy_names
 
 # Alternatively, load from file by uncommenting the following lines
-# results_file = JLD2.load(joinpath(savedir, "results.jld2")) # <---- Uncomment this line to load the results from file
-# policy_results = results_file["policy_results"] # <---- Uncomment this line to load the results from file
-# policy_names = results_file["policy_names"] # <---- Uncomment this line to load the results from file
+results_file = JLD2.load(joinpath(savedir, "results.jld2")) # <---- Uncomment this line to load the results from file
+policy_results = results_file["policy_results"] # <---- Uncomment this line to load the results from file
+policy_names = results_file["policy_names"] # <---- Uncomment this line to load the results from file
 
 # Plot the results
 for (policy_result, policy_name) in zip(policy_results, policy_names)
     p = policy_results_summary(pomdps[1], policy_result, policy_name)
     savefig(p, joinpath(savedir, policy_name * ".pdf"))
+
+    p = policy_sankey_diagram(pomdps[1], policy_result, policy_name)
+    savefig(p, joinpath(savedir, policy_name * "_sankey.pdf"))
 end
 p = policy_comparison_summary(policy_results, policy_names)
 savefig(p, joinpath(savedir, "policy_comparison.pdf"))
@@ -114,10 +119,9 @@ pomdps_per_geo, test_sets_per_geo = create_pomdps_with_different_training_fracti
 # Solve the policies and evaluate the results #<---- Uncomment the below lines to solve and eval the policies
 results = Dict()
 for (policy, pol_name) in zip(policies, policy_names)
-    println("Solving/Evaluating for policy: ", pol_name)
     results[pol_name] = Dict(:Ngeologies => [], :results =>[])
     for (Ngeology, pomdps, test_sets) in zip(n_geologies, pomdps_per_geo, test_sets_per_geo)
-        println("Solving/Evaulating for POMDP with Ngeologies= ", Ngeology)
+        println("Solving and evaulating for policy", pol_name, " with Ngeologies= ", Ngeology)
         push!(results[pol_name][:Ngeologies], Ngeology)
         push!(results[pol_name][:results], eval_kfolds(pomdps, policy, test_sets))
     end
