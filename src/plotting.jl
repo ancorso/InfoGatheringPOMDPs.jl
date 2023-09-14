@@ -68,19 +68,20 @@ function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
     src = []
     dst = []
     weights = []
-    node_labels = string.(pomdp.terminal_actions)
-    Nterm = length(pomdp.terminal_actions)
+    node_labels = ["Abandon", "Execute"]
+    action_sets = [[:abandon], setdiff(pomdp.terminal_actions, [:abandon])]
+    Nterm = length(action_sets)
     max_traj_length = maximum(length.(results[:actions]))
     for i=1:max_length
-        for (ai, a) in enumerate(pomdp.terminal_actions)
+        for (ai, a) in enumerate(action_sets)
             append!(src, i+Nterm)
             append!(dst, ai)
             if i<max_length
-                append!(weights, sum([traj[i] == a for traj in results[:actions] if length(traj) >= i]))
+                append!(weights, sum([traj[i] in a for traj in results[:actions] if length(traj) >= i]))
             else
                 total_Na = 0
                 for j=i:max_traj_length
-                    total_Na += sum([traj[j] == a for traj in results[:actions] if length(traj) >= j])
+                    total_Na += sum([traj[j] in a for traj in results[:actions] if length(traj) >= j])
                 end
                 append!(weights, total_Na)
             end

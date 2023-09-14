@@ -68,12 +68,12 @@ pomdps, test_sets = create_pomdps(scenario_csvs, geo_params, econ_params, obs_ac
 
 # Define the rest of the policies
 min_particles = 50
-scen7_pol(pomdp) = FixedPolicy([:Scenario_7], FunctionPolicy((b)->error("No action defined for this policy.")))
-scen11_pol(pomdp) = FixedPolicy([:Scenario_11], FunctionPolicy((b)->error("No action defined for this policy.")))
-scen13_pol(pomdp) = FixedPolicy([:Scenario_13], FunctionPolicy((b)->error("No action defined for this policy.")))
+scen7_pol(pomdp) = FixedPolicy([:Scenario_7])
+scen11_pol(pomdp) = FixedPolicy([:Scenario_11])
+scen13_pol(pomdp) = FixedPolicy([:Scenario_13])
 all_policy(pomdp) = EnsureParticleCount(FixedPolicy(obs_actions, BestCurrentOption(pomdp)), BestCurrentOption(pomdp), min_particles)
 random_policy(pomdp) = EnsureParticleCount(RandPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
-# onestepgreedy_policy(pomdp) = EnsureParticleCount(OneStepGreedyPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
+onestepgreedy_policy(pomdp) = EnsureParticleCount(OneStepGreedyPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
 sarsop_policy(pomdp) = EnsureParticleCount(solve(SARSOPSolver(), pomdp), BestCurrentOption(pomdp), min_particles)
 
 # combine policies into a list
@@ -91,9 +91,9 @@ end
 JLD2.@save joinpath(savedir, "results.jld2") policy_results policy_names
 
 # Alternatively, load from file by uncommenting the following lines
-results_file = JLD2.load(joinpath(savedir, "results.jld2")) # <---- Uncomment this line to load the results from file
-policy_results = results_file["policy_results"] # <---- Uncomment this line to load the results from file
-policy_names = results_file["policy_names"] # <---- Uncomment this line to load the results from file
+# results_file = JLD2.load(joinpath(savedir, "results.jld2")) # <---- Uncomment this line to load the results from file
+# policy_results = results_file["policy_results"] # <---- Uncomment this line to load the results from file
+# policy_names = results_file["policy_names"] # <---- Uncomment this line to load the results from file
 
 # Plot the results
 for (policy_result, policy_name) in zip(policy_results, policy_names)
