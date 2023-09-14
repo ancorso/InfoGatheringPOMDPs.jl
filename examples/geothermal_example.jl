@@ -8,7 +8,7 @@ using Random
 using DataStructures
 
 # Define the save directory. This will through an error if the savedir already exists
-savedir="./results/test/"
+savedir="./results/v1/"
 try mkdir(savedir) catch end
 
 # Define the scenarios and corresponding paths to CSV files
