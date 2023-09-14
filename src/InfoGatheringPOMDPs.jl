@@ -11,7 +11,7 @@ using POMDPTools
 using ProgressMeter
 using Random
 using LinearAlgebra
-using Plots; default(fontfamily="Computer Modern", framestyle=:box)
+using Plots; default(fontfamily="Computer Modern", framestyle=:box, margin=1mm)
 using Plots.Measures
 using SankeyPlots
 

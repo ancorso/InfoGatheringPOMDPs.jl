@@ -5,8 +5,8 @@ end
 function symbol_histogram(unique_syms, symarray; kwargs...)
     counts = [sum(symarray .== s) for s in unique_syms]
     syms = string.(unique_syms)
-    margin = 0.6*maximum(length.(syms))
-    plot(1:length(syms), counts ./ sum(counts), seriestype=:bar, xrotation=60, xticks=(1:length(syms), syms), ylabel="Frequency", label="", normalize=:pdf, bottom_margin=margin*mm; kwargs...)
+    bottom_margin = maximum(length.(syms))*mm
+    plot(1:length(syms), counts ./ sum(counts), seriestype=:bar, xrotation=60, xticks=(1:length(syms), syms), ylabel="Frequency", label="", normalize=:pdf; bottom_margin, kwargs...)
 end
 
 function combine_actions(actions)
@@ -69,6 +69,7 @@ function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
     dst = []
     weights = []
     node_labels = ["Abandon", "Execute"]
+    node_colors = [:red, :green]
     action_sets = [[:abandon], setdiff(pomdp.terminal_actions, [:abandon])]
     Nterm = length(action_sets)
     max_traj_length = maximum(length.(results[:actions]))
@@ -87,6 +88,7 @@ function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
             end
         end
         push!(node_labels, "Action $i")
+        push!(node_colors, :gray)
         if i < max_length
             append!(src, i+Nterm)
             append!(dst, i+Nterm+1)
@@ -95,17 +97,17 @@ function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
     end
 
     # plot the results
-    sankey(src, dst, weights, size=(1200,1200); node_labels, compact=true, label_position=:top)
+    sankey(src, dst, weights, size=(1200,1200); node_colors, node_labels, compact=true, label_position=:top, edge_color=:gradient)
 end
 
 function policy_comparison_summary(policy_results, policy_names)
-    bottom_margin = 0.6*maximum(length.(policy_names))*mm
+    bottom_margin = maximum(length.(policy_names))*mm
     p_reward = bar(policy_names, [mean(r[:reward]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Discounted Reward", title="Mean Discounted Reward", legend=false)
     p_obs_cost = bar(policy_names, [mean(r[:obs_cost]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Observation Cost", title="Mean Observation Cost", legend=false, yflip=true)
     p_num_obs = bar(policy_names, [mean(r[:num_obs]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Number of Observations", title="Mean Number of Observations", legend=false)
     p_correct_scenario = bar(policy_names, [mean(r[:correct_scenario]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Correct Scenario", title="Mean Correct Scenario", legend=false)
     p_correct_gonogo = bar(policy_names, [mean(r[:correct_gonogo]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Correct Go/NoGo", title="Mean Correct Go/NoGo", legend=false)
-    plot(p_reward, p_obs_cost, p_num_obs, p_correct_scenario, p_correct_gonogo, layout=(2,3), legend=false, size=(1400,800), margin=5mm)
+    plot(p_reward, p_obs_cost, p_num_obs, p_correct_scenario, p_correct_gonogo, layout=(2,3), legend=false, size=(1400,800), left_margin=5mm)
 end
 
 function train_states_comparison_summary(results)
