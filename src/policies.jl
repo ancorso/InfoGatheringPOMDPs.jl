@@ -1,4 +1,4 @@
-reset_policy!(policy) = nothing
+POMDPs.action(p::T, b; i) where T<:Policy = action(p, b)
 
 struct BestCurrentOption <: Policy
     pomdp::InfoGatheringPOMDP
@@ -15,37 +15,25 @@ end
     min_particle_count::Int = 50
 end
 
-function reset_policy!(policy::EnsureParticleCount)
-    reset_policy!(policy.policy)
-    reset_policy!(policy.final_action_policy)
-end
-
-function POMDPs.action(p::EnsureParticleCount, b::DiscreteBelief)
+function POMDPs.action(p::EnsureParticleCount, b::DiscreteBelief; i=nothing)
     if sum(b.b .> 0) <= p.min_particle_count
-        return action(p.final_action_policy, b)
+        return action(p.final_action_policy, b; i)
     else
-        return action(p.policy, b)
+        return action(p.policy, b; i)
     end
 end
 
-@with_kw mutable struct FixedPolicy <: Policy
+struct FixedPolicy <: Policy
     actions::Vector
-    backup_policy::Policy
-    i::Int = 1
-    FixedPolicy(actions, backup_policy) = new(actions, backup_policy, 1)
+    backup_policy::Policy 
+    FixedPolicy(actions, backup_policy = FunctionPolicy((b)->error("No action defined for this policy."))) = new(actions, backup_policy)
 end
 
-function reset_policy!(policy::FixedPolicy)
-    policy.i = 1
-    reset_policy!(policy.backup_policy)
-end
-
-function POMDPs.action(p::FixedPolicy, b)
-    if p.i > length(p.actions)
-        a = action(p.backup_policy, b)
+function POMDPs.action(p::FixedPolicy, b; i=nothing)
+    if i > length(p.actions)
+        a = action(p.backup_policy, b; i)
     else
-        a = p.actions[p.i]
-        p.i += 1
+        a = p.actions[i]
     end
     return a
 end

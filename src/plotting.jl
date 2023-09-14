@@ -63,30 +63,33 @@ function policy_results_summary(pomdp, results, policy_name)
     plot(p_final_action, p_actions, p_data, p_pes, p_expected_loss, layout=(2,3), size=(1400,800), left_margin=5mm, right_margin=5mm)
 end
 
-function policy_sankey_diagram(pomdp, results, policy_name)
-    max_traj_length = maximum(length.(results[:actions]))
-
-    # Count up the flow of actions
-    obs = [count(traj[i] isa ObservationAction for traj in results[:actions] if length(traj) >= i) for i = 1:max_traj_length]
-    abandon = [count(traj[i] == :abandon for traj in results[:actions] if length(traj) >= i) for i = 1:max_traj_length]
-    select = [count(!(traj[i] isa ObservationAction) && traj[i] != :abandon for traj in results[:actions] if length(traj) >= i) for i = 1:max_traj_length]
-    max_length = 10
-
+function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
     # Turn it into a set of source and destination nodes
     src = []
     dst = []
     weights = []
-    node_labels = ["Execute", "Abandon"]
+    node_labels = string.(pomdp.terminal_actions)
+    Nterm = length(pomdp.terminal_actions)
+    max_traj_length = maximum(length.(results[:actions]))
     for i=1:max_length
+        for (ai, a) in enumerate(pomdp.terminal_actions)
+            append!(src, i+Nterm)
+            append!(dst, ai)
+            if i<max_length
+                append!(weights, sum([traj[i] == a for traj in results[:actions] if length(traj) >= i]))
+            else
+                total_Na = 0
+                for j=i:max_traj_length
+                    total_Na += sum([traj[j] == a for traj in results[:actions] if length(traj) >= j])
+                end
+                append!(weights, total_Na)
+            end
+        end
         push!(node_labels, "Action $i")
-        if i==max_length
-            append!(src, i+2, i+2)
-            append!(dst, 1, 2)
-            append!(weights, sum(select[i:end]), sum(abandon[i:end]))
-        else
-            append!(src, i+2, i+2, i+2)
-            append!(dst, i+3, 1, 2)
-            append!(weights, obs[i], select[i], abandon[i])
+        if i < max_length
+            append!(src, i+Nterm)
+            append!(dst, i+Nterm+1)
+            append!(weights, sum([traj[i] isa ObservationAction for traj in results[:actions] if length(traj) >= i]))
         end
     end
 

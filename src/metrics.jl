@@ -65,12 +65,12 @@ function expected_loss(history; pomdp)
 end
 
 function eval_single(pomdp, policy, s, updater = DiscreteUp(pomdp), b0 = initialstate(pomdp); rng=Random.GLOBAL_RNG)
-    reset_policy!(policy)
     history = []
     b = b0
     t = 0
+    i = 1
     while !isterminal(pomdp, s)
-        a = action(policy, b)
+        a = action(policy, b; i)
         sp, o, r = gen(pomdp, s, a, rng)
         bp = nothing
         try
@@ -82,6 +82,7 @@ function eval_single(pomdp, policy, s, updater = DiscreteUp(pomdp), b0 = initial
         end
         push!(history, (;s, a, sp, o, r, b, bp, t))
         dt = a isa ObservationAction ? a.time : 0
+        i = i+1
         t = t+dt
         s = sp
         b = bp
