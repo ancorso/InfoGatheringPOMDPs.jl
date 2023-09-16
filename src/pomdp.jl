@@ -266,7 +266,7 @@ function create_pomdps(scenario_csvs, geo_params, econ_params, obs_actions, Nbin
     # Parse all of the states from the csv files
     statevec = parseCSV(scenario_csvs, geo_params, econ_params)
 
-    train_sets, test_sets = kfolds(statevec, nfolds; rng)
+    train_sets, test_sets = kfolds(statevec, nfolds; train_frac, rng)
     pomdps = Array{Any}(undef, nfolds)
     p = Progress(nfolds, 1, "Creating POMDPs...")
     Threads.@threads for i in 1:nfolds
