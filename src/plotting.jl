@@ -25,7 +25,7 @@ function combine_actions(actions)
     return combined_actions
 end
 
-function histogram_with_cdf(data, bins=nothing; kwargs...)
+function histogram_with_cdf(data, bins=nothing; one_minus_cdf=true, kwargs...)
     if !isnothing(bins)
         h = fit(Histogram, data, bins, closed=:left)
     else
@@ -36,8 +36,11 @@ function histogram_with_cdf(data, bins=nothing; kwargs...)
     counts = h.weights
     cdf_values = cumsum(counts) ./ sum(counts)
     p = plot(h, seriestype=:bar, ylabel="Probability", ylims=(0,1.1), label="Probability", legend=:topright, margin=5mm; kwargs...)
-
-    plot!(edges[2:end], 1.0 .- cdf_values, label="1-CDF", lw=2)
+    if one_minus_cdf
+        plot!(edges[2:end], 1.0 .- cdf_values, label="1-CDF", lw=2)
+    else
+        plot!(edges[2:end], cdf_values, label="CDF", lw=2)
+    end
     return p
 end
 
@@ -47,18 +50,24 @@ function policy_results_summary(pomdp, results, policy_name)
     p_pes = histogram_with_cdf(results[:PES], 0:0.1:1, xlims=(0,1), xlabel="PES", title="$policy_name - PES")
     
     rexp = initial_expected_loss(pomdp)
-    p_expected_loss = histogram_with_cdf(results[:expected_loss], range(rexp, 0, length=100), xlims=(rexp,0), xlabel="Expected Loss", title="$policy_name - Expected Loss")
+    p_expected_loss = histogram_with_cdf(results[:expected_loss], range(rexp, 0, length=100), xlims=(rexp,0), xlabel="Expected Loss", title="$policy_name - Expected Loss", one_minus_cdf=false)
 
     all_actions = actions(pomdp)
     all_actions = [a isa Symbol ? string(a) : a.name for a in all_actions]
     p_actions = symbol_histogram(all_actions, combine_actions(results[:actions]), xlabel="Actions", title="$policy_name  - Actions")
 
+    first_actions = unique([traj[1] isa Symbol ? string(traj[1]) : traj[1].name for traj in results[:actions]])
+    first_actions_str = join(first_actions, "\n")
+    regret = mean(results[:obs_cost][results[:final_action] .== :abandon])
+
     p_data = plot(legend=false, grid=false, axis=false, ticks=nothing, border=:none, size=(800,400))
     annotate!(0,0.9,("Mean Discounted Reward: $(round(mean(results[:reward]), digits=2))", :left))
     annotate!(0,0.8,("Mean Observation Cost: $(round(mean(results[:obs_cost]), digits=2))", :left))
-    annotate!(0,0.7,("Mean Number of Observations: $(round(mean(results[:num_obs]), digits=2))", :left))
-    annotate!(0,0.6,("Mean Correct Scenario: $(round(mean(results[:correct_scenario]), digits=2))", :left))
-    annotate!(0,0.5,("Mean Correct Go/NoGo: $(round(mean(results[:correct_gonogo]), digits=2))", :left))
+    annotate!(0,0.7,("Mean Regret: $(round(regret, digits=2))", :left))
+    annotate!(0,0.6,("Mean Number of Observations: $(round(mean(results[:num_obs]), digits=2))", :left))
+    annotate!(0,0.5,("Mean Correct Scenario: $(round(mean(results[:correct_scenario]), digits=2))", :left))
+    annotate!(0,0.4,("Mean Correct Go/NoGo: $(round(mean(results[:correct_gonogo]), digits=2))", :left))
+    annotate!(0,0.4 - (0.1*length(first_actions)),("First action(s): $(first_actions_str)", :left))
 
     plot(p_final_action, p_actions, p_data, p_pes, p_expected_loss, layout=(2,3), size=(1400,800), left_margin=5mm, right_margin=5mm)
 end
@@ -118,12 +127,14 @@ function train_states_comparison_summary(results)
     p_correct_gonogo = plot()
     p_legend = plot(legend=false, grid=false, axis=false, ticks=nothing, border=:none, size=(800,400))
 
+    xlab = "No. Subsurface Realizations"
+
     for (policy_name, pol_results) in results
-        plot!(p_reward, pol_results[:Ngeologies], [mean(r[:reward]) for r in pol_results[:results]],xlabel="No. Geologies", ylabel="Mean Discounted Reward", legend = false)
-        plot!(p_obs_cost, pol_results[:Ngeologies], [mean(r[:obs_cost]) for r in pol_results[:results]],  xlabel="No. Geologies", ylabel="Mean Observation Cost", legend = false)
-        plot!(p_num_obs, pol_results[:Ngeologies], [mean(r[:num_obs]) for r in pol_results[:results]], xlabel="No. Geologies", ylabel="Mean Number of Observations", legend = false)
-        plot!(p_correct_scenario, pol_results[:Ngeologies], [mean(r[:correct_scenario]) for r in pol_results[:results]], xlabel="No. Geologies", ylabel="Mean Correct Scenario", legend = false)
-        plot!(p_correct_gonogo, pol_results[:Ngeologies], [mean(r[:correct_gonogo]) for r in pol_results[:results]], xlabel="No. Geologies", ylabel="Mean Correct Go/NoGo", legend = false)
+        plot!(p_reward, pol_results[:Ngeologies], [mean(r[:reward]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Discounted Reward", legend = false)
+        plot!(p_obs_cost, pol_results[:Ngeologies], [mean(r[:obs_cost]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Observation Cost", legend = false)
+        plot!(p_num_obs, pol_results[:Ngeologies], [mean(r[:num_obs]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Number of Observations", legend = false)
+        plot!(p_correct_scenario, pol_results[:Ngeologies], [mean(r[:correct_scenario]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Correct Scenario", legend = false)
+        plot!(p_correct_gonogo, pol_results[:Ngeologies], [mean(r[:correct_gonogo]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Correct Go/NoGo", legend = false)
         plot!(p_legend, [], [], label=policy_name, legend=:topleft)
     end
     plot(p_reward, p_obs_cost, p_num_obs, p_correct_scenario, p_correct_gonogo, p_legend, layout=(2,3),size=(1400,800), margin=5mm)
