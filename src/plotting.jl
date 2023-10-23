@@ -25,7 +25,7 @@ function combine_actions(actions)
     return combined_actions
 end
 
-function histogram_with_cdf(data, bins=nothing; one_minus_cdf=true, kwargs...)
+function histogram_with_cdf(data, bins=nothing; p=plot(), one_minus_cdf=true, ignore_hist=false, kwargs...)
     if !isnothing(bins)
         h = fit(Histogram, data, bins, closed=:left)
     else
@@ -35,11 +35,15 @@ function histogram_with_cdf(data, bins=nothing; one_minus_cdf=true, kwargs...)
     edges = h.edges[1]
     counts = h.weights
     cdf_values = cumsum(counts) ./ sum(counts)
-    p = plot(h, seriestype=:bar, ylabel="Probability", ylims=(0,1.1), label="Probability", legend=:topright, margin=5mm; kwargs...)
-    if one_minus_cdf
-        plot!(edges[2:end], 1.0 .- cdf_values, label="1-CDF", lw=2)
+    if ignore_hist
+        plot!(p, ylabel="Probability", ylims=(0,1.1), legend=:topright, margin=5mm; kwargs...)
     else
-        plot!(edges[2:end], cdf_values, label="CDF", lw=2)
+        plot!(p, h, seriestype=:bar, ylabel="Probability", ylims=(0,1.1), label="Probability", legend=:topright, margin=5mm; kwargs...)
+    end
+    if one_minus_cdf
+        plot!(edges[2:end], 1.0 .- cdf_values, label="1-CDF", lw=2; kwargs...)
+    else
+        plot!(edges[2:end], cdf_values, label="CDF", lw=2; kwargs...)
     end
     return p
 end
@@ -53,8 +57,8 @@ function policy_results_summary(pomdp, results, policy_name)
     p_expected_loss = histogram_with_cdf(results[:expected_loss], range(rexp, 0, length=100), xlims=(rexp,0), xlabel="Expected Loss", title="$policy_name - Expected Loss", one_minus_cdf=false)
 
     all_actions = actions(pomdp)
-    all_actions = [a isa Symbol ? string(a) : a.name for a in all_actions]
-    p_actions = symbol_histogram(all_actions, combine_actions(results[:actions]), xlabel="Actions", title="$policy_name  - Actions")
+    obs_actions = [a.name for a in all_actions if a isa ObservationAction]
+    pobs = symbol_histogram(obs_actions, combine_actions(results[:actions]), title="$policy_name  - Observations")
 
     first_actions = unique([traj[1] isa Symbol ? string(traj[1]) : traj[1].name for traj in results[:actions]])
     first_actions_str = join(first_actions, "\n")
@@ -69,7 +73,16 @@ function policy_results_summary(pomdp, results, policy_name)
     annotate!(0,0.4,("Mean Correct Go/NoGo: $(round(mean(results[:correct_gonogo]), digits=2))", :left))
     annotate!(0,0.4 - (0.1*length(first_actions)),("First action(s): $(first_actions_str)", :left))
 
-    plot(p_final_action, p_actions, p_data, p_pes, p_expected_loss, layout=(2,3), size=(1400,800), left_margin=5mm, right_margin=5mm)
+    pall = plot(p_final_action, pobs, p_data, p_pes, p_expected_loss, layout=(2,3), size=(1400,800), left_margin=5mm, right_margin=5mm)
+    plot!(pobs, size=(600,600)), p_final_action, pall
+end
+
+function pes_comparison(policy_results, policy_names)
+    p = plot()
+    for (results, name) in zip(policy_results, policy_names)
+        histogram_with_cdf(results[:PES], 0:0.1:1, xlims=(0,1), p=p, ignore_hist=true, xlabel="PES", label=name, legend=:bottomleft)
+    end
+    p
 end
 
 function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
@@ -96,7 +109,7 @@ function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
                 append!(weights, total_Na)
             end
         end
-        push!(node_labels, "Action $i")
+        push!(node_labels, "Obs $i")
         push!(node_colors, :gray)
         if i < max_length
             append!(src, i+Nterm)
@@ -106,7 +119,69 @@ function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
     end
 
     # plot the results
-    sankey(src, dst, weights, size=(1200,1200); node_colors, node_labels, compact=true, label_position=:top, edge_color=:gradient)
+    sankey(src, dst, weights, size=(600,300); node_colors, node_labels, compact=true, label_position=:top, edge_color=:gradient)
+end
+
+function trajectory_regret_metrics(pomdp, results)
+    ab_set = [:abandon]
+    ex_set = setdiff(pomdp.terminal_actions, [:abandon])
+    headers = ["N_abandon", " N_execute", " N_obs", " cumulative_spent", " abandon_chance", " execution_chance", " expected_regret"]
+    df = DataFrame()
+    for h in headers
+        df[!, h] = Vector{Any}()
+    end
+    for i=1:maximum(length.(results[:actions]))
+        Nab = 0
+        Nob = 0
+        Nex = 0
+        # How much has been spent up to the current timestep
+        obs_cost_to_i = 0
+
+        # If you keep going what is the chance you walk away vs. execute
+        abandon_chance = 0
+        execution_chance = 0
+
+        # If you keep going what is your expected regret in the cases you abandon
+        expected_regret = 0
+        Nex_regret = 0
+
+        # Loop over trajectories
+        for t in results[:actions]
+            # Check that the current timestep is relevant for the curent trajectory
+            if length(t) >= i 
+                # Add the cost of this trajectory, but don't include the terminal cost/reward
+                if length(t) > 1
+                    obs_cost_to_i += sum(a.cost for a in t[1:i] if a isa ObservationAction)
+                end
+
+                # Add up the number of trajectories that abandon or execute
+                Nab += t[i] in ab_set
+                Nex += t[i] in ex_set
+
+                # For all trajectories that continue on, how many end up abandoned? executed?
+                if !(t[i] in pomdp.terminal_actions)
+                    Nob += 1
+                    if t[end] == :abandon
+                        abandon_chance += 1
+                        if length(t) > i+1
+                            expected_regret += sum(a.cost for a in t[i+1:end] if a isa ObservationAction)
+                            Nex_regret += 1
+                        end
+                    else
+                        execution_chance += 1
+                    end
+                end
+
+            end
+        end
+        abandon_chance /= Nob
+        execution_chance /= Nob
+        expected_regret /= Nex_regret
+        obs_cost_to_i /= Nob
+        
+        push!(df, [Nab, Nex, Nob, obs_cost_to_i, abandon_chance, execution_chance, expected_regret])
+    end
+    df
 end
 
 function policy_comparison_summary(policy_results, policy_names)
@@ -117,6 +192,28 @@ function policy_comparison_summary(policy_results, policy_names)
     p_correct_scenario = bar(policy_names, [mean(r[:correct_scenario]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Correct Scenario", title="Mean Correct Scenario", legend=false)
     p_correct_gonogo = bar(policy_names, [mean(r[:correct_gonogo]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Correct Go/NoGo", title="Mean Correct Go/NoGo", legend=false)
     plot(p_reward, p_obs_cost, p_num_obs, p_correct_scenario, p_correct_gonogo, layout=(2,3), legend=false, size=(1400,800), left_margin=5mm)
+end
+
+function report_mean(vals)
+	mean_vals = mean(vals)
+	stderr_vals = std(vals) / sqrt(length(vals))
+	@sprintf("\\num{%.2g} \$\\pm\$ \\num{%.2g}", mean_vals, stderr_vals) 
+end
+
+function policy_comparison_table(policy_results, policy_names)
+    header = "Policy & Number Obs & Obs Cost & Expected NPV (↑) & Expected Loss (↓) & Correct Go/No-Go (↑) & Correct Scenario (↑) \\\\"
+    println(header)
+    for (results, name) in zip(policy_results, policy_names)
+        row = "$(name) & "
+        row *= report_mean(results[:num_obs]) * " & "
+        row *= report_mean(results[:obs_cost]) * " & "
+        row *= report_mean(results[:reward]) * " & "
+        row *= report_mean(results[:reward][results[:reward] .< 0]) * " & "
+        row *= report_mean(results[:correct_gonogo]) * " & " 
+        row *= report_mean(results[:correct_scenario])
+        row *= " \\\\"
+        println(row)
+    end
 end
 
 function train_states_comparison_summary(results)
@@ -138,6 +235,64 @@ function train_states_comparison_summary(results)
         plot!(p_legend, [], [], label=policy_name, legend=:topleft)
     end
     plot(p_reward, p_obs_cost, p_num_obs, p_correct_scenario, p_correct_gonogo, p_legend, layout=(2,3),size=(1400,800), margin=5mm)
+end
+
+function reward_vs_ngeolgies(pol_results, policy_name; p=plot())
+    xlab = "No. Subsurface Realizations"
+    plot!(p, pol_results[:Ngeologies], [mean(r[:reward]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Discounted Reward", legend = false, title=policy_name)
+end
+
+function generate_action_table(pomdp, var_desc)
+    header = "Name & Cost (M€) & Duration (Years) & Observed Variables & Observation Uncertainty \\\\"
+    println(header)
+    println("\\midrule")
+    for a in actions(pomdp)
+        if a in pomdp.terminal_actions
+            continue
+        end
+        dist = a.obs_dist(pomdp.states[2])
+        o = rand(dist)
+
+        # Check for the scenario-dependent options
+        rows = []
+        k1 = string(collect(keys(o))[1])
+        if occursin("Scenario", k1) #TODO this is just a fix for now and wont work when Scenarios aren't called Scenario_X
+            k = Symbol(replace(k1, r"_Scenario.*" => ""))
+            d = collect(values(dist))[1]
+            sigma = (d.b - d.a)/2
+            row = var_desc[k] * " & \\num{" *  @sprintf("%.3g", sigma) * "} \\\\" 
+            push!(rows, row)
+        else
+            for ((_, d), (k, _)) in zip(dist, o)
+                @assert d isa Distributions.Uniform # Asssert this for now
+                sigma = (d.b - d.a)/2
+                row = var_desc[k] * " & \\num{" * @sprintf("%.3g", sigma) * "} \\\\"
+                push!(rows, row)
+            end
+        end
+        nrows = length(rows)
+        if nrows == 1
+            prefix = "$(a.name) & \\num{" * @sprintf("%.3g", a.cost) *"} & \\num{" * @sprintf("%.2g", a.time) * "} & "
+        else
+            prefix = "\\multirow{$nrows}{*}{$(a.name)} & \\multirow{$nrows}{*}{\\num{" * @sprintf("%.3g", a.cost) *"}} & \\multirow{$nrows}{*}{\\num{" * @sprintf("%.2g", a.time) * "}} & "
+        end
+
+        ## Now print the table
+        for (i, row) in enumerate(rows)
+            if i==1
+                println(prefix * row)
+            else
+                println("& & & "*row)
+            end
+        end
+    end
+end
+
+
+function scenario_returns(scenario_csvs, geo_params, econ_params)
+    statevec = InfoGatheringPOMDPs.parseCSV(scenario_csvs, geo_params, econ_params)
+    hists = [[s[scenario] for s in statevec] for scenario in keys(scenario_csvs)]
+    violin(hists, label ="", xrot=60, bottom_margin=10Plots.mm, xticks=(1:length(hists), string.(keys(scenario_csvs))), ylabel="NPV", title="Development Scenario Returns", color=:black, alpha=0.5)
 end
 
 

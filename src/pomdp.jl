@@ -8,13 +8,13 @@ end
 ## The following functions are helpful for defining the observation distributions
 # Use this one when there is a one-to-one mapping between observation and the state parameter it observes
 function uniform(symbol, σ)
-    return (s) -> Dict{Symbol, Distribution}(symbol => Distributions.Uniform(s[symbol]-σ, s[symbol]+σ))
+    return (s) -> OrderedDict{Symbol, Distribution}(symbol => Distributions.Uniform(s[symbol]-σ, s[symbol]+σ))
 end
 
 # Use this one when one action observes multiple different state parameters
 function product_uniform(symbol_σ_pairs)
     return (s) -> begin
-        dists = Dict{Symbol, Distribution}()
+        dists = OrderedDict{Symbol, Distribution}()
         for (sym, σ) in symbol_σ_pairs
             dists[sym] = Distributions.Uniform(s[sym]-σ, s[sym]+σ)
         end
@@ -25,7 +25,7 @@ end
 # Use this one when you have a parameter that is scenario-dependent
 function scenario_dependent_uniform(symbol, scenarios, σ)
     return (s) -> begin
-        dists = Dict{Symbol, Distribution}()
+        dists = OrderedDict{Symbol, Distribution}()
         for scen in scenarios
             sym = Symbol("$(symbol)_$(scen)")
             dists[sym] = Distributions.Uniform(s[sym]-σ, s[sym]+σ)
@@ -35,7 +35,7 @@ function scenario_dependent_uniform(symbol, scenarios, σ)
 end
 
 # Be able to sample a dictionary of symbol => distribution
-Base.rand(rng::AbstractRNG, d::Dict{Symbol, Distribution}) = Dict(k => rand(rng, v) for (k, v) in d)
+Base.rand(rng::AbstractRNG, d::OrderedDict{Symbol, Distribution}) = OrderedDict(k => rand(rng, v) for (k, v) in d)
 
 # Function to parse a series of CSVs that represent different scenarios
 function parseCSV(
