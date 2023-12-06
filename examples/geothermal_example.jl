@@ -9,22 +9,22 @@ using Random
 using DataStructures
 
 # Define the save directory. This will through an error if the savedir already exists
-savedir="./results/v3/"
+savedir="./results/v5/"
 try mkdir(savedir) catch end
 
 # Define the scenarios and corresponding paths to CSV files
 scenario_csvs = OrderedDict(
-        :Scenario_1 => "./examples/data/Geothermal Reservoir/DSSCEN1_50N_POMDP.csv",
-        :Scenario_2 => "./examples/data/Geothermal Reservoir/DSSCEN2_50N_POMDP.csv",
-        :Scenario_3 => "./examples/data/Geothermal Reservoir/DSSCEN3_50N_POMDP.csv",
-        :Scenario_4 => "./examples/data/Geothermal Reservoir/DSSCEN4_50N_POMDP.csv",
-        :Scenario_5 => "./examples/data/Geothermal Reservoir/DSSCEN5_50N_POMDP.csv",
-        :Scenario_6 => "./examples/data/Geothermal Reservoir/DSSCEN6_50N_POMDP.csv",
-        :Scenario_7 => "./examples/data/Geothermal Reservoir/DSSCEN7_50N_POMPDP.csv",
-        :Scenario_8 => "./examples/data/Geothermal Reservoir/DSSCEN8_50_POMDP.csv",
-        :Scenario_10 => "./examples/data/Geothermal Reservoir/DSSCEN10_50N_POMPD.csv",
-        :Scenario_11 => "./examples/data/Geothermal Reservoir/DSSCEN11_50N_POMPD .csv",
-        :Scenario_13 => "./examples/data/Geothermal Reservoir/DSSCEN13_50N_POMDP.csv"
+        Symbol("Option 1") => "./examples/data/Geothermal Reservoir/DSSCEN1_50N_POMDP.csv", # Scenar
+        Symbol("Option 2") => "./examples/data/Geothermal Reservoir/DSSCEN2_50N_POMDP.csv",
+        Symbol("Option 3") => "./examples/data/Geothermal Reservoir/DSSCEN3_50N_POMDP.csv",
+        Symbol("Option 4") => "./examples/data/Geothermal Reservoir/DSSCEN4_50N_POMDP.csv",
+        Symbol("Option 5") => "./examples/data/Geothermal Reservoir/DSSCEN5_50N_POMDP.csv",
+        Symbol("Option 6") => "./examples/data/Geothermal Reservoir/DSSCEN6_50N_POMDP.csv",
+        Symbol("Option 7") => "./examples/data/Geothermal Reservoir/DSSCEN7_50N_POMPDP.csv",
+        Symbol("Option 8") => "./examples/data/Geothermal Reservoir/DSSCEN8_50_POMDP.csv",
+        Symbol("Option 9") => "./examples/data/Geothermal Reservoir/DSSCEN10_50N_POMPD.csv",
+        Symbol("Option 10") => "./examples/data/Geothermal Reservoir/DSSCEN11_50N_POMPD .csv",
+        Symbol("Option 11") => "./examples/data/Geothermal Reservoir/DSSCEN13_50N_POMDP.csv"
     )
 
 # Define the set of geological and economic parameters so geo models can be separated
@@ -33,6 +33,7 @@ econ_params = ["par_CAPEXitem1", "par_CAPEXitem2", "par_CAPEXitem5", "par_CAPEXi
 
 # Plot the scenario returns
 p = scenario_returns(scenario_csvs, geo_params, econ_params)
+plot!(margin=5Plots.mm)
 savefig(p,  savefig(p, joinpath(savedir, "scenario_returns.pdf")))
 
 # Parameter descriptions
@@ -115,17 +116,20 @@ generate_action_table(pomdps[1], var_description)
 
 # Define the rest of the policies
 min_particles = 50
-scen7_pol(pomdp) = FixedPolicy([:Scenario_7])
-scen11_pol(pomdp) = FixedPolicy([:Scenario_11])
-scen13_pol(pomdp) = FixedPolicy([:Scenario_13])
-all_policy(pomdp) = EnsureParticleCount(FixedPolicy(obs_actions, BestCurrentOption(pomdp)), BestCurrentOption(pomdp), min_particles)
-random_policy(pomdp) = EnsureParticleCount(RandPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
-onestepgreedy_policy(pomdp) = EnsureParticleCount(OneStepGreedyPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
+scen7_pol(pomdp) = FixedPolicy([Symbol("Option 7")])
+scen11_pol(pomdp) = FixedPolicy([Symbol("Option 10")])
+scen13_pol(pomdp) = FixedPolicy([Symbol("Option 11")])
+all_policy_geo(pomdp) = EnsureParticleCount(FixedPolicy(obs_actions, BestCurrentOption(pomdp)), BestCurrentOption(pomdp), min_particles)
+all_policy_econ(pomdp) = EnsureParticleCount(FixedPolicy(reverse(obs_actions), BestCurrentOption(pomdp)), BestCurrentOption(pomdp), min_particles)
+random_policy_10(pomdp) = EnsureParticleCount(RandPolicy(;pomdp, prob_terminal=0.1), BestCurrentOption(pomdp), min_particles)
+random_policy_4(pomdp) = EnsureParticleCount(RandPolicy(;pomdp, prob_terminal=0.25), BestCurrentOption(pomdp), min_particles)
+random_policy_2(pomdp) = EnsureParticleCount(RandPolicy(;pomdp, prob_terminal=0.5), BestCurrentOption(pomdp), min_particles)
+# onestepgreedy_policy(pomdp) = EnsureParticleCount(OneStepGreedyPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
 sarsop_policy(pomdp) = EnsureParticleCount(solve(SARSOPSolver(), pomdp), BestCurrentOption(pomdp), min_particles)
 
 # combine policies into a list
-policies = [scen7_pol, scen11_pol, scen13_pol, all_policy, random_policy, sarsop_policy] # onestepgreedy_policy
-policy_names = ["Scenario 7", "Scenario 11", "Scenario 13", "Observe-All Policy", "Random Policy", "SARSOP Policy"] # "One-Step Greedy Policy"
+policies = [scen7_pol, scen11_pol, scen13_pol, all_policy_geo, all_policy_econ, random_policy_10, random_policy_25, random_policy_50, sarsop_policy] # onestepgreedy_policy
+policy_names = ["Scenario 7", "Scenario 11", "Scenario 13", "Observe-All Policy (Geo)", "Observe-All Policy (Econ)", "Random Policy (10)", "Random Policy (4)", "Random Policy (2)", "SARSOP Policy"] # "One-Step Greedy Policy"
 
 # Evaluate the policies on the test set 
 policy_results = [] # <---- Uncomment this block to evaluate the policies
@@ -138,9 +142,9 @@ end
 JLD2.@save joinpath(savedir, "results.jld2") policy_results policy_names
 
 # Alternatively, load from file by uncommenting the following lines
-# results_file = JLD2.load(joinpath(savedir, "results.jld2")) # <---- Uncomment this line to load the results from file
-# policy_results = results_file["policy_results"] # <---- Uncomment this line to load the results from file
-# policy_names = results_file["policy_names"] # <---- Uncomment this line to load the results from file
+results_file = JLD2.load(joinpath(savedir, "results.jld2")) # <---- Uncomment this line to load the results from file
+policy_results = results_file["policy_results"] # <---- Uncomment this line to load the results from file
+policy_names = results_file["policy_names"] # <---- Uncomment this line to load the results from file
 
 # Plot the results
 for (policy_result, policy_name) in zip(policy_results, policy_names)

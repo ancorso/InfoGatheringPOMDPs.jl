@@ -39,16 +39,16 @@ function POMDPs.action(p::FixedPolicy, b; i=nothing)
 end
 
 @with_kw struct RandPolicy <: Policy
+    prob_terminal::Float64 = 0.1
     pomdp::InfoGatheringPOMDP
     best_current_option::BestCurrentOption = BestCurrentOption(pomdp)
 end
 
 function POMDPs.action(p::RandPolicy, b)
-    a = rand(actions(p.pomdp))
-    if a in p.pomdp.terminal_actions
-        return action(p.best_current_option, b)
+    if rand() < p.prob_terminal
+        return rand(setdiff(actions(p.pomdp), p.pomdp.terminal_actions))
     else
-        return a
+        return action(p.best_current_option, b)
     end
 end
 
