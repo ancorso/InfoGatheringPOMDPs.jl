@@ -256,8 +256,8 @@ function generate_action_table(pomdp, var_desc)
         # Check for the scenario-dependent options
         rows = []
         k1 = string(collect(keys(o))[1])
-        if occursin("Scenario", k1) #TODO this is just a fix for now and wont work when Scenarios aren't called Scenario_X
-            k = Symbol(replace(k1, r"_Scenario.*" => ""))
+        if occursin("Option", k1) #TODO this is just a fix for now and wont work when Scenarios aren't called Scenario_X
+            k = Symbol(replace(k1, r"_Option.*" => ""))
             d = collect(values(dist))[1]
             sigma = (d.b - d.a)/2
             row = var_desc[k] * " & \\num{" *  @sprintf("%.3g", sigma) * "} \\\\" 

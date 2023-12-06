@@ -128,7 +128,7 @@ random_policy_2(pomdp) = EnsureParticleCount(RandPolicy(;pomdp, prob_terminal=0.
 sarsop_policy(pomdp) = EnsureParticleCount(solve(SARSOPSolver(), pomdp), BestCurrentOption(pomdp), min_particles)
 
 # combine policies into a list
-policies = [scen7_pol, scen11_pol, scen13_pol, all_policy_geo, all_policy_econ, random_policy_10, random_policy_25, random_policy_50, sarsop_policy] # onestepgreedy_policy
+policies = [scen7_pol, scen11_pol, scen13_pol, all_policy_geo, all_policy_econ, random_policy_10, random_policy_4, random_policy_2, sarsop_policy] # onestepgreedy_policy
 policy_names = ["Scenario 7", "Scenario 11", "Scenario 13", "Observe-All Policy (Geo)", "Observe-All Policy (Econ)", "Random Policy (10)", "Random Policy (4)", "Random Policy (2)", "SARSOP Policy"] # "One-Step Greedy Policy"
 
 # Evaluate the policies on the test set 
