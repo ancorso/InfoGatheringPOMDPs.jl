@@ -46,9 +46,9 @@ end
 
 function POMDPs.action(p::RandPolicy, b)
     if rand() < p.prob_terminal
-        return rand(setdiff(actions(p.pomdp), p.pomdp.terminal_actions))
-    else
         return action(p.best_current_option, b)
+    else
+        return rand(setdiff(actions(p.pomdp), p.pomdp.terminal_actions))
     end
 end
 

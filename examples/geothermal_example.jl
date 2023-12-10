@@ -1,5 +1,4 @@
 using InfoGatheringPOMDPs
-using Plots
 using POMDPs
 using POMDPTools
 using NativeSARSOP
@@ -7,6 +6,8 @@ using JLD2
 using CSV
 using Random
 using DataStructures
+using Plots
+default(framestyle = :box,  color_palette=:seaborn_deep6, fontfamily="Computer Modern")
 
 # Define the save directory. This will through an error if the savedir already exists
 savedir="./results/v5/"
@@ -33,7 +34,6 @@ econ_params = ["par_CAPEXitem1", "par_CAPEXitem2", "par_CAPEXitem5", "par_CAPEXi
 
 # Plot the scenario returns
 p = scenario_returns(scenario_csvs, geo_params, econ_params)
-plot!(margin=5Plots.mm)
 savefig(p,  savefig(p, joinpath(savedir, "scenario_returns.pdf")))
 
 # Parameter descriptions
@@ -72,7 +72,6 @@ pairs_3Wells = [(:par_P_Std, 0.0025), (:par_P_Mean, 0.025), (:par_PMax, 1000), (
 
 # Define the observation actions
 obs_actions = [
-    ObservationAction("Drill 3 Wells", 270/365, -9, product_uniform(pairs_3Wells)),
     ObservationAction("Measure Water Compressibility", 14/365, -0.05, uniform(:par_C_WATER, 5e-5)),
     ObservationAction("Measure Initial Reservoir Pressure", 21/365, -0.1, uniform(:par_P_INIT, 5)),
     ObservationAction("Measure Fault Transmissibility Multiplier", 60/365, -2.0, uniform(:par_FTM, 0.015)),
@@ -81,6 +80,7 @@ obs_actions = [
     ObservationAction("Measure Rock Thermal Conductivity", 30/365, -0.07, uniform(:par_THCOND_RES, 0.5)),
     ObservationAction("Measure Rock Heat Capacity", 30/365, -0.07, uniform(:par_HCAP_RES, 250)),
     ObservationAction("Measure Temperature Gradient", 21/365, -0.1, uniform(:par_TempGrad, 0.001)),
+    ObservationAction("Drill 3 Wells", 270/365, -9, product_uniform(pairs_3Wells)),
     ObservationAction("Assess Capex1", 30/365, -1.2, uniform(:par_CAPEXitem1, 1e-6)),
     ObservationAction("Assess Capex2", 30/365, -1.2, uniform(:par_CAPEXitem2, 1e-6)),
     ObservationAction("Assess Capex3", 60/365, -10, scenario_dependent_uniform(:par_CAPEXitem3, keys(scenario_csvs), 1e-6)),
@@ -142,25 +142,31 @@ end
 JLD2.@save joinpath(savedir, "results.jld2") policy_results policy_names
 
 # Alternatively, load from file by uncommenting the following lines
-results_file = JLD2.load(joinpath(savedir, "results.jld2")) # <---- Uncomment this line to load the results from file
-policy_results = results_file["policy_results"] # <---- Uncomment this line to load the results from file
-policy_names = results_file["policy_names"] # <---- Uncomment this line to load the results from file
+# results_file = JLD2.load(joinpath(savedir, "results.jld2")) # <---- Uncomment this line to load the results from file
+# policy_results = results_file["policy_results"] # <---- Uncomment this line to load the results from file
+# policy_names = results_file["policy_names"] # <---- Uncomment this line to load the results from file
 
 # Plot the results
-for (policy_result, policy_name) in zip(policy_results, policy_names)
+for (policy_result, policy_name) in zip(policy_results[5:end], policy_names[5:end])
     # Print out all of the policy metrics (both combined and some individual)
     pobs, pdev, pall = policy_results_summary(pomdps[1], policy_result, policy_name)
-    savefig(pall, joinpath(savedir, policy_name * "_summary.pdf"))
-    savefig(pobs, joinpath(savedir, policy_name * "_observations.pdf"))
-    savefig(pdev, joinpath(savedir, policy_name * "_development_selections.pdf"))
+    try
+        savefig(pall, joinpath(savedir, policy_name * "_summary.pdf"))
+        savefig(pobs, joinpath(savedir, policy_name * "_observations.pdf"))
+        # savefig(pobs, joinpath(savedir, policy_name * "_observations.tex"))
+        savefig(pdev, joinpath(savedir, policy_name * "_development_selections.pdf"))
+        # savefig(pdev, joinpath(savedir, policy_name * "_development_selections.tex"))
 
-    # Plot the sankey diagram that shows the abandon, execute, observe flow
-    p = policy_sankey_diagram(pomdps[1], policy_result, policy_name)
-    savefig(p, joinpath(savedir, policy_name * "_sankey.pdf"))
+        # Plot the sankey diagram that shows the abandon, execute, observe flow
+        p = policy_sankey_diagram(pomdps[1], policy_result, policy_name)
+        savefig(p, joinpath(savedir, policy_name * "_sankey.pdf"))
 
-    # Similar information to the sankey diagram but also includes expected regret
-    df = trajectory_regret_metrics(pomdps[1], policy_result)
-    CSV.write(joinpath(savedir,  policy_name * "_trajectory_regret_metrics.csv"), df)
+        # Similar information to the sankey diagram but also includes expected regret
+        df = trajectory_regret_metrics(pomdps[1], policy_result)
+        CSV.write(joinpath(savedir,  policy_name * "_trajectory_regret_metrics.csv"), df)
+    catch
+        println("Error plotting for policy: ", policy_name)
+    end
 end
 
 # Make direct comparisons across policies (figure and table)
@@ -169,8 +175,20 @@ savefig(p, joinpath(savedir, "policy_comparison.pdf"))
 policy_comparison_table(policy_results, policy_names)
 
 # Compare just the PES CDFS across policies
-p = pes_comparison(policy_results[4:end], policy_names[4:end])
+p = pes_comparison(policy_results[[5,7,9]], policy_names[[5,7,9]])
+vline!([policy_results[1][:PES][1]], label="Option 7", linestyle=:dash)
+vline!([policy_results[2][:PES][1]], label="Option 10", linestyle=:dash)
+vline!([policy_results[3][:PES][1]], label="Option 11", linestyle=:dash)
 savefig(p, joinpath(savedir, "PES_comparison.pdf"))
+# savefig(p, joinpath(savedir, "PES_comparison.tex"))
+
+# Compare the expected loss across policies
+p = expected_loss_comparison(policy_results[[5,7,9]], policy_names[[5,7,9]])
+vline!([policy_results[1][:expected_loss][1]], label="Option 7", linestyle=:dash)
+vline!([policy_results[2][:expected_loss][1]], label="Option 10", linestyle=:dash)
+vline!([policy_results[3][:expected_loss][1]], label="Option 11", linestyle=:dash)
+savefig(p, joinpath(savedir, "Expected_Loss_comparison.pdf"))
+# savefig(p, joinpath(savedir, "Expected_Loss_comparison.tex"))
 
 ###########################################################################
 # This section is to investigate the number of geological models needed   #
@@ -203,3 +221,4 @@ savefig(joinpath(savedir, "subsurfaces_realizations_comparison.pdf"))
 # Print the same for just the reward for just one policy
 reward_vs_ngeolgies(results["SARSOP Policy"], "SARSOP Policy")
 savefig(joinpath(savedir, "SARSOP_subsurface_realizations.pdf")) 
+# savefig(joinpath(savedir, "SARSOP_subsurface_realizations.tex")) 

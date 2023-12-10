@@ -13,11 +13,13 @@ using ProgressMeter
 using Random
 using LinearAlgebra
 using Plots.Measures
-using Plots; default(fontfamily="Computer Modern", framestyle=:box, margin=1mm)
+using Plots
 using SankeyPlots
 using StatsPlots
 using DataStructures
 
+# Default plotting things
+default(framestyle = :box,  color_palette=:seaborn_deep6, fontfamily="Computer Modern")
 
 export DiscreteUp
 include("discrete_updater.jl")
@@ -35,7 +37,7 @@ include("metrics.jl")
 
 export policy_results_summary, policy_comparison_summary, train_states_comparison_summary, 
        policy_sankey_diagram, trajectory_regret_metrics, generate_action_table, scenario_returns, 
-       policy_comparison_table, pes_comparison, reward_vs_ngeolgies
+       policy_comparison_table, pes_comparison, expected_loss_comparison, reward_vs_ngeolgies
 include("plotting.jl")
 
 end

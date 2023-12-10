@@ -2,11 +2,19 @@ function initial_expected_loss(pomdp)
     mean([reward(pomdp, s, a) * (reward(pomdp, s, a) < 0.0) for a in pomdp.terminal_actions for s in states(pomdp)])
 end
 
-function symbol_histogram(unique_syms, symarray; kwargs...)
+function symbol_histogram(unique_syms, symarray; normalize = true, kwargs...)
     counts = [sum(symarray .== s) for s in unique_syms]
+    if normalize==true
+        norm = sum(counts)
+    elseif normalize isa Real
+        norm = normalize
+    else
+        @warn "Unknown normalization type: $normalize"
+        norm = 1
+    end
     syms = string.(unique_syms)
     bottom_margin = maximum(length.(syms))*mm
-    plot(1:length(syms), counts ./ sum(counts), seriestype=:bar, xrotation=60, xticks=(1:length(syms), syms), ylabel="Frequency", label="", normalize=:pdf; bottom_margin, kwargs...)
+    plot(1:length(syms), counts ./ norm, seriestype=:bar, xrotation=60, xticks=(1:length(syms), syms), ylabel="Frequency", label="", normalize=:pdf; bottom_margin, kwargs...)
 end
 
 function combine_actions(actions)
@@ -58,7 +66,8 @@ function policy_results_summary(pomdp, results, policy_name)
 
     all_actions = actions(pomdp)
     obs_actions = [a.name for a in all_actions if a isa ObservationAction]
-    pobs = symbol_histogram(obs_actions, combine_actions(results[:actions]), title="$policy_name  - Observations")
+    Nsamps = length(results[:final_action])
+    pobs = symbol_histogram(obs_actions, combine_actions(results[:actions]), title="$policy_name  - Observations", normalize=Nsamps)
 
     first_actions = unique([traj[1] isa Symbol ? string(traj[1]) : traj[1].name for traj in results[:actions]])
     first_actions_str = join(first_actions, "\n")
@@ -80,7 +89,35 @@ end
 function pes_comparison(policy_results, policy_names)
     p = plot()
     for (results, name) in zip(policy_results, policy_names)
-        histogram_with_cdf(results[:PES], 0:0.1:1, xlims=(0,1), p=p, ignore_hist=true, xlabel="PES", label=name, legend=:bottomleft)
+        histogram_with_cdf(
+            results[:PES], 
+            0:0.1:1, 
+            xlims=(0,1), 
+            ylims=(0,1),
+            p=p, 
+            ignore_hist=true, 
+            xlabel="Probability of Economic Success", 
+            label=name, 
+            legend=:bottomleft,
+            lw=1)
+    end
+    p
+end
+
+function expected_loss_comparison(policy_results, policy_names)
+    p = plot()
+    for (results, name) in zip(policy_results, policy_names)
+        histogram_with_cdf(
+            results[:expected_loss], 
+            range(-200, 0, length=100),
+            ylims=(0,1),
+            p=p, 
+            ignore_hist=true, 
+            xlabel="Expected Loss (M)", 
+            label=name, 
+            legend=:topleft,
+            one_minus_cdf=false,
+            lw=1)
     end
     p
 end
@@ -90,7 +127,7 @@ function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
     src = []
     dst = []
     weights = []
-    node_labels = ["Abandon", "Execute"]
+    node_labels = ["Walk Away", "Develop"]
     node_colors = [:red, :green]
     action_sets = [[:abandon], setdiff(pomdp.terminal_actions, [:abandon])]
     Nterm = length(action_sets)
@@ -109,7 +146,7 @@ function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
                 append!(weights, total_Na)
             end
         end
-        push!(node_labels, "Obs $i")
+        push!(node_labels, "Meas. $i")
         push!(node_colors, :gray)
         if i < max_length
             append!(src, i+Nterm)
@@ -119,7 +156,7 @@ function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
     end
 
     # plot the results
-    sankey(src, dst, weights, size=(600,300); node_colors, node_labels, compact=true, label_position=:top, edge_color=:gradient)
+    sankey(src, dst, weights, size=(500,450);label_size=6, node_colors, node_labels, compact=true, label_position=:top, edge_color=:gradient)
 end
 
 function trajectory_regret_metrics(pomdp, results)
@@ -197,20 +234,23 @@ end
 function report_mean(vals)
 	mean_vals = mean(vals)
 	stderr_vals = std(vals) / sqrt(length(vals))
-	@sprintf("\\num{%.2g} \$\\pm\$ \\num{%.2g}", mean_vals, stderr_vals) 
+	@sprintf("\\num{%.3f} \$\\pm\$ \\num{%.3f}", mean_vals, stderr_vals) 
 end
 
 function policy_comparison_table(policy_results, policy_names)
-    header = "Policy & Number Obs & Obs Cost & Expected NPV (↑) & Expected Loss (↓) & Correct Go/No-Go (↑) & Correct Scenario (↑) \\\\"
+    header = "Policy & NPV (M€) & Correct Go/No-Go & Correct Development Option & No. Measurements & Measurement Cost (M€)\\\\"
     println(header)
+    println("\\midrule")
     for (results, name) in zip(policy_results, policy_names)
         row = "$(name) & "
-        row *= report_mean(results[:num_obs]) * " & "
-        row *= report_mean(results[:obs_cost]) * " & "
         row *= report_mean(results[:reward]) * " & "
-        row *= report_mean(results[:reward][results[:reward] .< 0]) * " & "
         row *= report_mean(results[:correct_gonogo]) * " & " 
-        row *= report_mean(results[:correct_scenario])
+        row *= report_mean(results[:correct_scenario]) * " & "
+        row *= report_mean(results[:num_obs]) * " & "
+        row *= report_mean(results[:obs_cost])
+        
+        # row *= report_mean(results[:reward][results[:reward] .< 0]) * " & "
+        
         row *= " \\\\"
         println(row)
     end
@@ -292,7 +332,16 @@ end
 function scenario_returns(scenario_csvs, geo_params, econ_params)
     statevec = InfoGatheringPOMDPs.parseCSV(scenario_csvs, geo_params, econ_params)
     hists = [[s[scenario] for s in statevec] for scenario in keys(scenario_csvs)]
-    violin(hists, label ="", xrot=60, bottom_margin=10Plots.mm, xticks=(1:length(hists), string.(keys(scenario_csvs))), ylabel="NPV", title="Development Scenario Returns", color=:black, alpha=0.5)
+    violin(
+        hists, 
+        label ="", 
+        xrot=60,
+        xticks=(1:length(hists), string.(keys(scenario_csvs))), 
+        ylabel="NPV (M)", title="Development Option Returns", 
+        color=:blue, 
+        alpha=0.3
+    )
+    hline!([0], color=:black, label="")
 end
 
 
