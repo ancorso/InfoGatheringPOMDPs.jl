@@ -218,11 +218,11 @@ fracs = [0.02, 0.04, 0.08, 0.16, 0.32, 0.5, 0.8]
 alls = [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8]
 
 if split_by == :geo
-    geo_fracs = geo_fracs
+    geo_fracs = fracs
     econ_fracs = alls
 elseif split_by == :econ
     geo_fracs = alls
-    econ_fracs = econ_fracs
+    econ_fracs = fracs
 elseif split_by == :both
     geo_fracs = [fracs..., alls...]
     econ_fracs = [alls..., fracs...]
