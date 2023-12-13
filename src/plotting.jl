@@ -67,7 +67,7 @@ function policy_results_summary(pomdp, results, policy_name)
     all_actions = actions(pomdp)
     obs_actions = [a.name for a in all_actions if a isa ObservationAction]
     Nsamps = length(results[:final_action])
-    pobs = symbol_histogram(obs_actions, combine_actions(results[:actions]), title="$policy_name  - Observations", normalize=Nsamps)
+    pobs = symbol_histogram(obs_actions, combine_actions(results[:actions]), title="$policy_name  - Data Acquisition Actions", normalize=Nsamps)
 
     first_actions = unique([traj[1] isa Symbol ? string(traj[1]) : traj[1].name for traj in results[:actions]])
     first_actions_str = join(first_actions, "\n")
@@ -75,9 +75,9 @@ function policy_results_summary(pomdp, results, policy_name)
 
     p_data = plot(legend=false, grid=false, axis=false, ticks=nothing, border=:none, size=(800,400))
     annotate!(0,0.9,("Mean Discounted Reward: $(round(mean(results[:reward]), digits=2))", :left))
-    annotate!(0,0.8,("Mean Observation Cost: $(round(mean(results[:obs_cost]), digits=2))", :left))
+    annotate!(0,0.8,("Mean Data Acquisition Cost: $(round(mean(results[:obs_cost]), digits=2))", :left))
     annotate!(0,0.7,("Mean Regret: $(round(regret, digits=2))", :left))
-    annotate!(0,0.6,("Mean Number of Observations: $(round(mean(results[:num_obs]), digits=2))", :left))
+    annotate!(0,0.6,("Mean Number of Data Acquisition Actions: $(round(mean(results[:num_obs]), digits=2))", :left))
     annotate!(0,0.5,("Mean Correct Scenario: $(round(mean(results[:correct_scenario]), digits=2))", :left))
     annotate!(0,0.4,("Mean Correct Go/NoGo: $(round(mean(results[:correct_gonogo]), digits=2))", :left))
     annotate!(0,0.4 - (0.1*length(first_actions)),("First action(s): $(first_actions_str)", :left))
@@ -146,7 +146,7 @@ function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
                 append!(weights, total_Na)
             end
         end
-        push!(node_labels, "Meas. $i")
+        push!(node_labels, "Data $i")
         push!(node_colors, :gray)
         if i < max_length
             append!(src, i+Nterm)
@@ -224,8 +224,8 @@ end
 function policy_comparison_summary(policy_results, policy_names)
     bottom_margin = maximum(length.(policy_names))*mm
     p_reward = bar(policy_names, [mean(r[:reward]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Discounted Reward", title="Mean Discounted Reward", legend=false)
-    p_obs_cost = bar(policy_names, [mean(r[:obs_cost]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Observation Cost", title="Mean Observation Cost", legend=false, yflip=true)
-    p_num_obs = bar(policy_names, [mean(r[:num_obs]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Number of Observations", title="Mean Number of Observations", legend=false)
+    p_obs_cost = bar(policy_names, [mean(r[:obs_cost]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Data Acquisition Cost", title="Mean Data Acquisition Cost", legend=false, yflip=true)
+    p_num_obs = bar(policy_names, [mean(r[:num_obs]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Number of Data Acquisition Actions", title="Mean Number of Data Acquisition Actions", legend=false)
     p_correct_scenario = bar(policy_names, [mean(r[:correct_scenario]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Correct Scenario", title="Mean Correct Scenario", legend=false)
     p_correct_gonogo = bar(policy_names, [mean(r[:correct_gonogo]) for r in policy_results], xrotation=60, bottom_margin=bottom_margin, ylabel="Mean Correct Go/NoGo", title="Mean Correct Go/NoGo", legend=false)
     plot(p_reward, p_obs_cost, p_num_obs, p_correct_scenario, p_correct_gonogo, layout=(2,3), legend=false, size=(1400,800), left_margin=5mm)
@@ -238,7 +238,7 @@ function report_mean(vals)
 end
 
 function policy_comparison_table(policy_results, policy_names)
-    header = "Policy & NPV (M€) & Correct Go/No-Go & Correct Development Option & No. Measurements & Measurement Cost (M€)\\\\"
+    header = "Policy & NPV (M€) & Correct Go/No-Go & Correct Development Option & No. Data Acquisition Actions & Data Acquisition Cost (M€)\\\\"
     println(header)
     println("\\midrule")
     for (results, name) in zip(policy_results, policy_names)
@@ -267,11 +267,11 @@ function train_states_comparison_summary(results)
     xlab = "No. Subsurface Realizations"
 
     for (policy_name, pol_results) in results
-        plot!(p_reward, pol_results[:Ngeologies], [mean(r[:reward]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Discounted Reward", legend = false)
-        plot!(p_obs_cost, pol_results[:Ngeologies], [mean(r[:obs_cost]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Observation Cost", legend = false)
-        plot!(p_num_obs, pol_results[:Ngeologies], [mean(r[:num_obs]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Number of Observations", legend = false)
-        plot!(p_correct_scenario, pol_results[:Ngeologies], [mean(r[:correct_scenario]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Correct Scenario", legend = false)
-        plot!(p_correct_gonogo, pol_results[:Ngeologies], [mean(r[:correct_gonogo]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Correct Go/NoGo", legend = false)
+        plot!(p_reward, pol_results[:geo_frac]*250, [mean(r[:reward]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Discounted Reward", legend = false)
+        plot!(p_obs_cost, pol_results[:geo_frac]*250, [mean(r[:obs_cost]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Data Acquisition Cost", legend = false)
+        plot!(p_num_obs, pol_results[:geo_frac]*250, [mean(r[:num_obs]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Number of Data Acquisition Actions", legend = false)
+        plot!(p_correct_scenario, pol_results[:geo_frac]*250, [mean(r[:correct_scenario]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Correct Scenario", legend = false)
+        plot!(p_correct_gonogo, pol_results[:geo_frac]*250, [mean(r[:correct_gonogo]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Correct Go/NoGo", legend = false)
         plot!(p_legend, [], [], label=policy_name, legend=:topleft)
     end
     plot(p_reward, p_obs_cost, p_num_obs, p_correct_scenario, p_correct_gonogo, p_legend, layout=(2,3),size=(1400,800), margin=5mm)
@@ -279,7 +279,7 @@ end
 
 function reward_vs_ngeolgies(pol_results, policy_name; p=plot())
     xlab = "No. Subsurface Realizations"
-    plot!(p, pol_results[:Ngeologies], [mean(r[:reward]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Discounted Reward", legend = false, title=policy_name)
+    plot!(p, pol_results[:geo_frac]*250, [mean(r[:reward]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Discounted Reward", legend = false, title=policy_name)
 end
 
 function generate_action_table(pomdp, var_desc)

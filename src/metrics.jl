@@ -100,14 +100,16 @@ function eval_single(pomdp, policy, s, updater = DiscreteUp(pomdp), b0 = initial
     return results
 end
 
-function eval_kfolds(pomdps, policy_fn, test_sets; rng=Random.GLOBAL_RNG)
+function eval_kfolds(pomdps, policy_fn, test_sets; rng=Random.GLOBAL_RNG, fix_seed=true)
     Ntest_sets = length.(test_sets)
     test_starts = [1, (cumsum(Ntest_sets)[1:end-1] .+ 1)...]
     results = Array{Any}(undef, sum(Ntest_sets))
     p = Progress(sum(Ntest_sets), 1, "Evaluating policy on test sets...")
     for (i, (pomdp, test_set)) in collect(enumerate(zip(pomdps, test_sets)))
+        fix_seed && Random.seed!(rng, i) # Fix the seed before potentially solving the policy
         policy = policy_fn(pomdp)
         Threads.@threads for (j, s) in collect(enumerate(test_set))
+            fix_seed && Random.seed!(rng, i+j) # Fix the seed for evaluation
             results[test_starts[i] + j - 1] = eval_single(pomdp, policy, s; rng)
             next!(p)
         end
