@@ -19,7 +19,7 @@ using StatsPlots
 using DataStructures
 
 # Default plotting things
-default(framestyle = :box,  color_palette=:seaborn_deep6, fontfamily="Computer Modern")
+default(framestyle = :box,  color_palette=:seaborn_deep6, fontfamily="Computer Modern", margin=5Plots.mm)
 
 export DiscreteUp
 include("discrete_updater.jl")

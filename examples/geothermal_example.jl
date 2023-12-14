@@ -7,7 +7,7 @@ using CSV
 using Random
 using DataStructures
 using Plots
-default(framestyle = :box,  color_palette=:seaborn_deep6, fontfamily="Computer Modern", margin=5mm)
+default(framestyle = :box,  color_palette=:seaborn_deep6, fontfamily="Computer Modern", margin=5Plots.mm)
 
 # Define random seeds
 fix_solve_and_eval_seed = true # Whether the seed is set before each policy gen and evaluation. Seed is the eval index + test set. It is threadsafe. 
