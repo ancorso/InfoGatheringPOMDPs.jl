@@ -296,16 +296,16 @@ function create_pomdps(scenario_csvs, geo_params, econ_params, obs_actions, Nbin
     p = Progress(nfolds, 1, "Creating POMDPs...")
     Threads.@threads for i in 1:nfolds
         # Create a specific rng for each thread
-        thread_rng = MersenneTwister(i)
+        Random.seed!(rng_seed+i)
 
         # Generate the train set by combining all of the folds except the ith one
         train = train_sets[i]
 
         # Discretize the observations
-        discrete_obs = get_discrete_observations(train, obs_actions, Nbins; rng=thread_rng)
+        discrete_obs = get_discrete_observations(train, obs_actions, Nbins;)
 
         # Create categorical observation distributions
-        obs_dists = create_observation_distributions(train, obs_actions, discrete_obs, Nbins .* Nsamples_per_bin; rng=thread_rng)
+        obs_dists = create_observation_distributions(train, obs_actions, discrete_obs, Nbins .* Nsamples_per_bin;)
 
         # Make the POMDP and return the val and test sets
         pomdps[i] = InfoGatheringPOMDP(train, obs_actions, keys(scenario_csvs), discrete_obs, obs_dists, (o) -> nearest_neighbor_mapping(o, discrete_obs), discount)
