@@ -115,12 +115,12 @@ function parseCSV(
 end
 
 # Generate k folds of the data
-function kfolds(states, nfolds; split_by=:geo, geo_train_frac = 1.0-1.0/nfolds, econ_train_frac = 1.0-1.0/nfolds, rng=Random.GLOBAL_RNG)
+function kfolds(states, nfolds; split_by=:geo, geo_train_frac = 1.0-1.0/nfolds, econ_train_frac = 1.0-1.0/nfolds)
     geo_indices = unique([s[:GeoID] for s in states])
     econ_indices = unique([s[:EconID] for s in states])
 
-    shuffled_geo_indices = shuffle(rng, geo_indices)
-    shuffled_econ_indices = shuffle(rng, econ_indices)
+    shuffled_geo_indices = shuffle(geo_indices)
+    shuffled_econ_indices = shuffle(econ_indices)
 
     Ngeo = length(shuffled_geo_indices)
     Necon = length(shuffled_econ_indices)
@@ -286,11 +286,12 @@ function POMDPs.gen(m::InfoGatheringPOMDP, s, a, rng)
     return (;sp, o, r)
 end
 
-function create_pomdps(scenario_csvs, geo_params, econ_params, obs_actions, Nbins; split_by=:geo, Nsamples_per_bin=10, nfolds=5, geo_train_frac = 1.0 - 1.0/nfolds, econ_train_frac = 1.0 - 1.0/nfolds, discount=0.9, rng=Random.GLOBAL_RNG)
+function create_pomdps(scenario_csvs, geo_params, econ_params, obs_actions, Nbins; split_by=:geo, Nsamples_per_bin=10, nfolds=5, geo_train_frac = 1.0 - 1.0/nfolds, econ_train_frac = 1.0 - 1.0/nfolds, discount=0.9, rng_seed=0)
     # Parse all of the states from the csv files
     statevec = parseCSV(scenario_csvs, geo_params, econ_params)
 
-    train_sets, test_sets = kfolds(statevec, nfolds; geo_train_frac, econ_train_frac, rng, split_by)
+    Random.seed!(rng_seed)
+    train_sets, test_sets = kfolds(statevec, nfolds; geo_train_frac, econ_train_frac, split_by)
     pomdps = Array{Any}(undef, nfolds)
     p = Progress(nfolds, 1, "Creating POMDPs...")
     Threads.@threads for i in 1:nfolds
@@ -316,11 +317,11 @@ function create_pomdps(scenario_csvs, geo_params, econ_params, obs_actions, Nbin
     return pomdps, test_sets
 end
 
-function create_pomdps_with_different_training_fractions(train_fracs, scenario_csvs, geo_params, econ_params, obs_actions, Nbins; split_by=:geo, Nsamples_per_bin=10, nfolds=5, discount=0.9, rng=Random.GLOBAL_RNG)
+function create_pomdps_with_different_training_fractions(train_fracs, scenario_csvs, geo_params, econ_params, obs_actions, Nbins; split_by=:geo, Nsamples_per_bin=10, nfolds=5, discount=0.9, rng_seed=0)
     pomdps_per_ngeo = []
     test_sets_per_frac = []
     for (geo_train_frac, econ_train_frac) in train_fracs
-        pomdps, test_sets = create_pomdps(scenario_csvs, geo_params, econ_params, obs_actions, Nbins; split_by, Nsamples_per_bin, nfolds, geo_train_frac, econ_train_frac, discount, rng=deepcopy(rng))
+        pomdps, test_sets = create_pomdps(scenario_csvs, geo_params, econ_params, obs_actions, Nbins; split_by, Nsamples_per_bin, nfolds, geo_train_frac, econ_train_frac, discount, rng_seed)
         push!(pomdps_per_ngeo, pomdps)
         push!(test_sets_per_frac, test_sets)
     end

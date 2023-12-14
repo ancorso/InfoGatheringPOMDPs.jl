@@ -11,8 +11,8 @@ default(framestyle = :box,  color_palette=:seaborn_deep6, fontfamily="Computer M
 
 # Define random seeds
 fix_solve_and_eval_seed = true # Whether the seed is set before each policy gen and evaluation. Seed is the eval index + test set. It is threadsafe. 
-pomdp_gen_seed = 0 # seed used to control the generation of the pomdps
-split_by = :geo # Split the test set for ensuring unique :geo, :econ, or :both
+pomdp_gen_seed = 1234 # seed used to control the generation of the pomdps
+split_by = :both # Split the test set for ensuring unique :geo, :econ, or :both
 
 # Can parse 1 command line argument for the split_by 
 if length(ARGS) > 0 
@@ -125,7 +125,7 @@ pomdps, test_sets = create_pomdps(
     econ_params, 
     obs_actions, 
     Nbins, 
-    rng=MersenneTwister(pomdp_gen_seed), # Set the pomdp random seed 
+    rng_seed=pomdp_gen_seed, # Set the pomdp random seed 
     discount=discount_factor,
     split_by=split_by
 )
@@ -224,16 +224,16 @@ elseif split_by == :econ
     geo_fracs = alls
     econ_fracs = fracs
 elseif split_by == :both
-    geo_fracs = [fracs..., alls...]
-    econ_fracs = [alls..., fracs...]
+    geo_fracs = [fracs..., alls[1:end-1]...]
+    econ_fracs = [alls..., fracs[1:end-1]...]
 end
 
 zip_fracs = [(g,e) for (g, e) in zip(geo_fracs, econ_fracs)]
-pomdps_per_geo, test_sets_per_geo = create_pomdps_with_different_training_fractions(zip_fracs, scenario_csvs, geo_params, econ_params, obs_actions, Nbins; rng=MersenneTwister(0), discount=discount_factor, split_by)
+pomdps_per_geo, test_sets_per_geo = create_pomdps_with_different_training_fractions(zip_fracs, scenario_csvs, geo_params, econ_params, obs_actions, Nbins; rng_seed=pomdp_gen_seed, discount=discount_factor, split_by)
 
 # Solve the policies and evaluate the results #<---- Uncomment the below lines to solve and eval the policies
 results = Dict()
-for (policy, pol_name) in zip(policies, policy_names)
+for (policy, pol_name) in zip(policies[end:end], policy_names[end:end])
     results[pol_name] = Dict(:geo_frac => [], :econ_frac => [], :results =>[])
     for (frac, pomdps, test_sets) in zip(zip_fracs, pomdps_per_geo, test_sets_per_geo)
         geo_frac, econ_frac = frac[1], frac[2]
@@ -246,13 +246,17 @@ end
 JLD2.@save joinpath(savedir, "Nsamples_results.jld2") results
 
 # Alternatively, load from file by uncommenting the following lines
-# results = JLD2.load(joinpath(savedir, "Nstates_results.jld2"))["results"] # <---- Uncomment this line to load the results from file
+# results = JLD2.load(joinpath(savedir, "Nsamples_results.jld2"))["results"] # <---- Uncomment this line to load the results from file
 
 # Show how all metrics across all policies vary with number of subsurface realizations
-train_states_comparison_summary(results)
-savefig(joinpath(savedir, "subsurfaces_realizations_comparison.pdf"))
+# train_states_comparison_summary(results)
+# savefig(joinpath(savedir, "subsurfaces_realizations_comparison.pdf"))
 
 # Print the same for just the reward for just one policy
 reward_vs_ngeolgies(results["SARSOP Policy"], "SARSOP Policy")
-savefig(joinpath(savedir, "SARSOP_subsurface_realizations.pdf")) 
-# savefig(joinpath(savedir, "SARSOP_subsurface_realizations.tex")) 
+savefig(joinpath(savedir, "SARSOP_geological_realizations.pdf")) 
+# savefig(joinpath(savedir, "SARSOP_geological_realizations.tex")) 
+
+reward_vs_necon(results["SARSOP Policy"], "SARSOP Policy")
+savefig(joinpath(savedir, "SARSOP_economic_realizations.pdf")) 
+# savefig(joinpath(savedir, "SARSOP_economic_realizations.tex")) 

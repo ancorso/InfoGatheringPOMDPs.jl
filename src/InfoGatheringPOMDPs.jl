@@ -37,7 +37,7 @@ include("metrics.jl")
 
 export policy_results_summary, policy_comparison_summary, train_states_comparison_summary, 
        policy_sankey_diagram, trajectory_regret_metrics, generate_action_table, scenario_returns, 
-       policy_comparison_table, pes_comparison, expected_loss_comparison, reward_vs_ngeolgies
+       policy_comparison_table, pes_comparison, expected_loss_comparison, reward_vs_ngeolgies, reward_vs_necon
 include("plotting.jl")
 
 end

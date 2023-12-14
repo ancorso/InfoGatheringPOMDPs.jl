@@ -256,30 +256,43 @@ function policy_comparison_table(policy_results, policy_names)
     end
 end
 
-function train_states_comparison_summary(results)
-    p_reward = plot()
-    p_obs_cost = plot()
-    p_num_obs = plot()
-    p_correct_scenario = plot()
-    p_correct_gonogo = plot()
-    p_legend = plot(legend=false, grid=false, axis=false, ticks=nothing, border=:none, size=(800,400))
+# function train_states_comparison_summary(results)
+#     p_reward = plot()
+#     p_obs_cost = plot()
+#     p_num_obs = plot()
+#     p_correct_scenario = plot()
+#     p_correct_gonogo = plot()
+#     p_legend = plot(legend=false, grid=false, axis=false, ticks=nothing, border=:none, size=(800,400))
 
-    xlab = "No. Subsurface Realizations"
+#     xlab = "No. Subsurface Realizations"
 
-    for (policy_name, pol_results) in results
-        plot!(p_reward, pol_results[:geo_frac]*250, [mean(r[:reward]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Discounted Reward", legend = false)
-        plot!(p_obs_cost, pol_results[:geo_frac]*250, [mean(r[:obs_cost]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Data Acquisition Cost", legend = false)
-        plot!(p_num_obs, pol_results[:geo_frac]*250, [mean(r[:num_obs]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Number of Data Acquisition Actions", legend = false)
-        plot!(p_correct_scenario, pol_results[:geo_frac]*250, [mean(r[:correct_scenario]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Correct Scenario", legend = false)
-        plot!(p_correct_gonogo, pol_results[:geo_frac]*250, [mean(r[:correct_gonogo]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Correct Go/NoGo", legend = false)
-        plot!(p_legend, [], [], label=policy_name, legend=:topleft)
-    end
-    plot(p_reward, p_obs_cost, p_num_obs, p_correct_scenario, p_correct_gonogo, p_legend, layout=(2,3),size=(1400,800), margin=5mm)
-end
+#     for (policy_name, pol_results) in results
+#         plot!(p_reward, pol_results[:geo_frac]*250, [mean(r[:reward]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Discounted Reward", legend = false)
+#         plot!(p_obs_cost, pol_results[:geo_frac]*250, [mean(r[:obs_cost]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Data Acquisition Cost", legend = false)
+#         plot!(p_num_obs, pol_results[:geo_frac]*250, [mean(r[:num_obs]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Number of Data Acquisition Actions", legend = false)
+#         plot!(p_correct_scenario, pol_results[:geo_frac]*250, [mean(r[:correct_scenario]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Correct Scenario", legend = false)
+#         plot!(p_correct_gonogo, pol_results[:geo_frac]*250, [mean(r[:correct_gonogo]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Correct Go/NoGo", legend = false)
+#         plot!(p_legend, [], [], label=policy_name, legend=:topleft)
+#     end
+#     plot(p_reward, p_obs_cost, p_num_obs, p_correct_scenario, p_correct_gonogo, p_legend, layout=(2,3),size=(1400,800), margin=5mm)
+# end
 
 function reward_vs_ngeolgies(pol_results, policy_name; p=plot())
-    xlab = "No. Subsurface Realizations"
-    plot!(p, pol_results[:geo_frac]*250, [mean(r[:reward]) for r in pol_results[:results]], xlabel=xlab, ylabel="Mean Discounted Reward", legend = false, title=policy_name)
+    xlab = "No. Geological Realizations"
+    max_econ = maximum(pol_results[:econ_frac])
+    xs = 250*pol_results[:geo_frac][pol_results[:econ_frac] .== max_econ]
+    perm = sortperm(xs)
+    ys = [mean(r[:reward]) for (r, e) in zip(pol_results[:results], pol_results[:econ_frac]) if e == max_econ]
+    plot!(p, xs[perm], ys[perm], xlabel=xlab, ylabel="Mean Discounted Reward", legend = false, title=policy_name)
+end
+
+function reward_vs_necon(pol_results, policy_name; p=plot())
+    xlab = "No. Economic Realizations"
+    max_geo = maximum(pol_results[:geo_frac])
+    xs = 50*pol_results[:econ_frac][pol_results[:geo_frac] .== max_geo]
+    perm = sortperm(xs)
+    ys = [mean(r[:reward]) for (r, g) in zip(pol_results[:results], pol_results[:geo_frac]) if g == max_geo]
+    plot!(p, xs[perm], ys[perm], xlabel=xlab, ylabel="Mean Discounted Reward", legend = false, title=policy_name)
 end
 
 function generate_action_table(pomdp, var_desc)
