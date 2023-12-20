@@ -21,15 +21,15 @@ echo "Number of CPU threads available: $num_threads"
 export JULIA_NUM_THREADS=$num_threads
 echo "Setting Julia to use $JULIA_NUM_THREADS threads"
 
-echo "Running Julia script with different arguments..."
+echo "Running Geothermal Example Experiments..."
 
 # Run with first argument "geo"
 julia1.9 examples/geothermal_example.jl both
 
-# Run with second argument "econ"
-julia1.9 examples/geothermal_example.jl geo
+# # Run with second argument "econ"
+# julia1.9 examples/geothermal_example.jl geo
 
-# Run with third argument "both"
-julia1.9 examples/geothermal_example.jl econ
+# # Run with third argument "both"
+# julia1.9 examples/geothermal_example.jl econ
 
 echo "Script execution completed."

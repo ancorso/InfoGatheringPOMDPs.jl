@@ -28,7 +28,7 @@ if length(ARGS) > 0
 end
 
 # Define the save directory. This will through an error if the savedir already exists
-savedir="./results/final_splitby_$(split_by)/"
+savedir="./results/results_splitby_$(split_by)/"
 try mkdir(savedir) catch end
 
 # Define the scenarios and corresponding paths to CSV files
@@ -72,12 +72,12 @@ var_description = OrderedDict( #TODO: check these
     :par_THCOND_RES => "Rock Thermal Conductivity",
     :par_HCAP_RES => "Rock Heat Capacity",
     :par_TempGrad => "Temperature Gradient",
-    :par_CAPEXitem1 => "Capex Injection Well",
-    :par_CAPEXitem2 => "Capex Production Well",
-    :par_CAPEXitem3 => "Capex Surface Facilities",
-    :par_CAPEXitem4 => "Capex Flowlines",
-    :par_CAPEXitem5 => "Capex Production Pump",
-    :par_CAPEXitem6 => "Capex Injection Pump",
+    :par_CAPEXitem1 => "CAPEX Injection Well",
+    :par_CAPEXitem2 => "CAPEX Production Well",
+    :par_CAPEXitem3 => "CAPEX Surface Facilities",
+    :par_CAPEXitem4 => "CAPEX Flowlines",
+    :par_CAPEXitem5 => "CAPEX Production Pump",
+    :par_CAPEXitem6 => "CAPEX Injection Pump",
     :par_OPEXfixedtotal => "OPEX Fixed Total",
     :par_UnitOPEXWater => "OPEX Water",
     :par_UnitOPEXWaterInj => "OPEX Water Injectors",
@@ -99,12 +99,12 @@ obs_actions = [
     ObservationAction("Measure Rock Heat Capacity", 30/365, -0.07, uniform(:par_HCAP_RES, 250)),
     ObservationAction("Measure Temperature Gradient", 21/365, -0.1, uniform(:par_TempGrad, 0.001)),
     ObservationAction("Drill 3 Wells", 270/365, -9, product_uniform(pairs_3Wells)),
-    ObservationAction("Assess Capex Injection Well", 30/365, -1.2, uniform(:par_CAPEXitem1, 0.3)),
-    ObservationAction("Assess Capex Production Well", 30/365, -1.2, uniform(:par_CAPEXitem2, 0.3)),
-    ObservationAction("Assess Capex Surface Facilities", 60/365, -10, scenario_dependent_uniform(:par_CAPEXitem3, keys(scenario_csvs), 18.0)),
-    ObservationAction("Assess Capex Flowlines", 60/365, -10, scenario_dependent_uniform(:par_CAPEXitem4, keys(scenario_csvs), 5.5)),
-    ObservationAction("Assess Capex Production Pump", 30/365, -0.03, uniform(:par_CAPEXitem5, 0.01625)),
-    ObservationAction("Assess Capex Injection Pump", 30/365, -0.02, uniform(:par_CAPEXitem6, 0.01)),
+    ObservationAction("Assess CAPEX Injection Well", 30/365, -1.2, uniform(:par_CAPEXitem1, 0.3)),
+    ObservationAction("Assess CAPEX Production Well", 30/365, -1.2, uniform(:par_CAPEXitem2, 0.3)),
+    ObservationAction("Assess CAPEX Surface Facilities", 60/365, -10, scenario_dependent_uniform(:par_CAPEXitem3, keys(scenario_csvs), 18.0)),
+    ObservationAction("Assess CAPEX Flowlines", 60/365, -10, scenario_dependent_uniform(:par_CAPEXitem4, keys(scenario_csvs), 5.5)),
+    ObservationAction("Assess CAPEX Production Pump", 30/365, -0.03, uniform(:par_CAPEXitem5, 0.01625)),
+    ObservationAction("Assess CAPEX Injection Pump", 30/365, -0.02, uniform(:par_CAPEXitem6, 0.01)),
     ObservationAction("Assess OPEX Fixed Total", 30/365, -3.5, scenario_dependent_uniform(:par_OPEXfixedtotal, keys(scenario_csvs), 1.0)),
     ObservationAction("Assess OPEX Water", 30/365, -0.02, uniform(:par_UnitOPEXWater, 0.00975)),
     ObservationAction("Assess OPEX Water Injectors", 30/365, -0.02, uniform(:par_UnitOPEXWaterInj, 0.00975)),
@@ -136,19 +136,38 @@ generate_action_table(pomdps[1], var_description)
 # Define the rest of the policies
 min_particles = 50
 option7_pol(pomdp) = FixedPolicy([Symbol("Option 7")])
-option11_pol(pomdp) = FixedPolicy([Symbol("Option 10")])
-option13_pol(pomdp) = FixedPolicy([Symbol("Option 11")])
+option10_pol(pomdp) = FixedPolicy([Symbol("Option 10")])
+option11_pol(pomdp) = FixedPolicy([Symbol("Option 11")])
 all_policy_geo(pomdp) = EnsureParticleCount(FixedPolicy(obs_actions, BestCurrentOption(pomdp)), BestCurrentOption(pomdp), min_particles)
 all_policy_econ(pomdp) = EnsureParticleCount(FixedPolicy(reverse(obs_actions), BestCurrentOption(pomdp)), BestCurrentOption(pomdp), min_particles)
 random_policy_0_1(pomdp) = EnsureParticleCount(RandPolicy(;pomdp, prob_terminal=0.1), BestCurrentOption(pomdp), min_particles)
 random_policy_0_25(pomdp) = EnsureParticleCount(RandPolicy(;pomdp, prob_terminal=0.25), BestCurrentOption(pomdp), min_particles)
 random_policy_0_5(pomdp) = EnsureParticleCount(RandPolicy(;pomdp, prob_terminal=0.5), BestCurrentOption(pomdp), min_particles)
-# voi_policy(pomdp) = EnsureParticleCount(OneStepGreedyPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
+# greedy_policy(pomdp) = EnsureParticleCount(OneStepGreedyPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
 sarsop_policy(pomdp) = EnsureParticleCount(solve(SARSOPSolver(max_time=10.0), pomdp), BestCurrentOption(pomdp), min_particles)
 
+human1 = [19, 20, 17, 18, 15, 14, 10, 11, 12, 13, 6, 7, 8, 3, 5, 9]
+human2 = [9, 3, 5, 7, 12, 16]
+human3 = [3, 12, 17]
+human4 = [2, 6, 7, 8, 9, 10, 11, 12, 16]
+human5 = [9, 3, 6, 7, 10, 11, 19, 20]
+human6 = [8, 14, 15, 3, 4]
+human7 = [3, 9, 8, 7, 2, 4, 5, 12, 10, 11, 13, 16, 17]
+human8 = [9, 12, 13, 3, 5, 8, 16, 10, 11, 18]
+human9 = [7, 9, 3, 10, 11, 16, 12, 13]
+
+humans = [human1, human2, human3, human4, human5, human6, human7, human8, human9]
+human_policies = [(pomdp) -> FixedPolicy([obs_actions[i] for i in h], BestCurrentOption(pomdp)) for h in humans]
+human_policy_names = [string("Human Policy ", i) for i in 1:length(humans)]
+
+# print_human_sequences(obs_actions, humans)
+
 # combine policies into a list
-policies = [option7_pol, option11_pol, option13_pol, all_policy_geo, all_policy_econ, random_policy_0_1, random_policy_0_25, random_policy_0_5, sarsop_policy] # voi_policy
-policy_names = ["Option 7", "Option 11", "Option 13", "All Data Policy (Geo First)", "All Data Policy (Econ First)", "Random Policy (Pstop=0.1)", "Random Policy (Pstop=0.25)", "Random Policy (Pstop=0.5)", "SARSOP Policy"] # "VOI Policy"
+policies = [option7_pol, option10_pol, option11_pol, all_policy_geo, all_policy_econ, random_policy_0_1, random_policy_0_25, random_policy_0_5, sarsop_policy] 
+policy_names = ["Option 7", "Option 10", "Option 11", "Acquire All (Geo First)", "Acquire All (Econ First)", "Random Policy (Pstop=0.1)", "Random Policy (Pstop=0.25)", "Random Policy (Pstop=0.5)", "SARSOP Policy"]
+
+# policies =  human_policies # <---- Uncomment this line to use the human policies
+# policy_names = human_policy_names # <---- Uncomment this line to use the human policies
 
 # Evaluate the policies on the test set 
 policy_results = [] # <---- Uncomment this block to evaluate the policies
@@ -172,9 +191,7 @@ for (policy_result, policy_name) in zip(policy_results, policy_names)
     try
         savefig(pall, joinpath(savedir, policy_name * "_summary.pdf"))
         savefig(pobs, joinpath(savedir, policy_name * "_data_acq_actions.pdf"))
-        # savefig(pobs, joinpath(savedir, policy_name * "_data_acq_actions.tex"))
         savefig(pdev, joinpath(savedir, policy_name * "_development_selections.pdf"))
-        # savefig(pdev, joinpath(savedir, policy_name * "_development_selections.tex"))
 
         # Plot the sankey diagram that shows the abandon, execute, observe flow
         p = policy_sankey_diagram(pomdps[1], policy_result, policy_name)
@@ -188,13 +205,28 @@ for (policy_result, policy_name) in zip(policy_results, policy_names)
     end
 end
 
+# ## Tex figures for the paper:
+# gr()
+# p = policy_sankey_diagram(pomdps[1], policy_result, policy_name)
+# annotate!(p, 11.5, 1.0, text("Walk Away", "Computer Modern", 8, rotation=-90))
+# annotate!(p, 11.5, 1.6, text("Develop", "Computer Modern", 8, rotation=-90))
+# savefig(p, joinpath(savedir, policy_name * "_sankey.pdf"))
+
+# ENV["PATH"] = ENV["PATH"]*":/Library/TeX/texbin"*":/opt/homebrew/bin"
+# pgfplotsx()
+# policy_result, policy_name = policy_results[end], policy_names[end]
+# pobs, pdev, pall = policy_results_summary(pomdps[1], policy_result, policy_name)
+# savefig(pobs, joinpath(savedir, policy_name * "_data_acq_actions.tex"))
+# savefig(pdev, joinpath(savedir, policy_name * "_development_selections.tex"))
+
 # Make direct comparisons across policies (figure and table)
 p = policy_comparison_summary(policy_results, policy_names)
 savefig(p, joinpath(savedir, "policy_comparison.pdf"))
 policy_comparison_table(policy_results, policy_names)
 
 # Compare just the PES CDFS across policies
-p = pes_comparison(policy_results[[5,7,9]], policy_names[[5,7,9]])
+risk_comparisons = [p in ["Acquire All (Econ First)", "Random Policy (Pstop=0.5)", "SARSOP Policy"] for p in policy_names]
+p = pes_comparison(policy_results[risk_comparisons], policy_names[risk_comparisons])
 vline!([policy_results[1][:PES][1]], label="Option 7", linestyle=:dash)
 vline!([policy_results[2][:PES][1]], label="Option 10", linestyle=:dash)
 vline!([policy_results[3][:PES][1]], label="Option 11", linestyle=:dash)
@@ -202,10 +234,10 @@ savefig(p, joinpath(savedir, "PES_comparison.pdf"))
 # savefig(p, joinpath(savedir, "PES_comparison.tex"))
 
 # Compare the expected loss across policies
-p = expected_loss_comparison(policy_results[[5,7,9]], policy_names[[5,7,9]])
-vline!([policy_results[1][:expected_loss][1]], label="Option 7", linestyle=:dash)
-vline!([policy_results[2][:expected_loss][1]], label="Option 10", linestyle=:dash)
-vline!([policy_results[3][:expected_loss][1]], label="Option 11", linestyle=:dash)
+p = expected_loss_comparison(policy_results[risk_comparisons], policy_names[risk_comparisons])
+vline!([mean(policy_results[1][:expected_loss][1])], label="Option 7", linestyle=:dash)
+vline!([mean(policy_results[2][:expected_loss][1])], label="Option 10", linestyle=:dash)
+vline!([mean(policy_results[3][:expected_loss][1])], label="Option 11", linestyle=:dash)
 savefig(p, joinpath(savedir, "Expected_Loss_comparison.pdf"))
 # savefig(p, joinpath(savedir, "Expected_Loss_comparison.tex"))
 
@@ -242,8 +274,9 @@ pomdps_per_geo, test_sets_per_geo = create_pomdps_with_different_training_fracti
 
 
 # Solve the policies and evaluate the results #<---- Uncomment the below lines to solve and eval the policies
+target_indices = [p in ["SARSOP Policy"] for p in policy_names]
 results = Dict()
-for (policy, pol_name) in zip(policies[end:end], policy_names[end:end])
+for (policy, pol_name) in zip(policies[target_indices], policy_names[target_indices])
     results[pol_name] = Dict(:geo_frac => [], :econ_frac => [], :results =>[])
     for (frac, pomdps, test_sets) in zip(zip_fracs, pomdps_per_geo, test_sets_per_geo)
         geo_frac, econ_frac = frac[1], frac[2]
@@ -258,13 +291,9 @@ JLD2.@save joinpath(savedir, "Nsamples_results.jld2") results
 # Alternatively, load from file by uncommenting the following lines
 # results = JLD2.load(joinpath(savedir, "Nsamples_results.jld2"))["results"] # <---- Uncomment this line to load the results from file
 
-# Show how all metrics across all policies vary with number of subsurface realizations
-# train_states_comparison_summary(results)
-# savefig(joinpath(savedir, "subsurfaces_realizations_comparison.pdf"))
-
 # Print the same for just the reward for just one policy
 reward_vs_ngeolgies(results["SARSOP Policy"], "SARSOP Policy")
-savefig(joinpath(savedir, "SARSOP_geological_realizations.pdf")) 
+savefig(joinpath(savedir, "SARSOP_geological_realizations.pdf"))
 # savefig(joinpath(savedir, "SARSOP_geological_realizations.tex")) 
 
 reward_vs_necon(results["SARSOP Policy"], "SARSOP Policy")

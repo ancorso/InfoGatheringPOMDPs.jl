@@ -20,15 +20,17 @@ end
 function combine_actions(actions)
     combined_actions = []
     for as in actions
+        actionset = []
         for a in as
             if a isa Symbol
-                push!(combined_actions, string(a))
+                push!(actionset, string(a))
             elseif a isa ObservationAction
-                push!(combined_actions, a.name)
+                push!(actionset, a.name)
             else
                 error("Unknown action type: ", typeof(a))
             end
         end
+        push!(combined_actions, unique(actionset)...)
     end
     return combined_actions
 end
@@ -127,7 +129,8 @@ function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
     src = []
     dst = []
     weights = []
-    node_labels = ["Walk Away", "Develop"]
+    # node_labels = ["Walk Away", "Develop"]
+    node_labels = ["", ""]
     node_colors = [:red, :green]
     action_sets = [[:abandon], setdiff(pomdp.terminal_actions, [:abandon])]
     Nterm = length(action_sets)
@@ -146,7 +149,7 @@ function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
                 append!(weights, total_Na)
             end
         end
-        push!(node_labels, "Data $i")
+        push!(node_labels, "$i")
         push!(node_colors, :gray)
         if i < max_length
             append!(src, i+Nterm)
@@ -156,7 +159,7 @@ function policy_sankey_diagram(pomdp, results, policy_name; max_length=10)
     end
 
     # plot the results
-    sankey(src, dst, weights, size=(500,450);label_size=6, node_colors, node_labels, compact=true, label_position=:top, edge_color=:gradient)
+    sankey(src, dst, weights, size=(500,450);label_size=8, node_colors, node_labels, label_position=:top, compact=true, edge_color=:gradient)
 end
 
 function trajectory_regret_metrics(pomdp, results)
@@ -234,7 +237,7 @@ end
 function report_mean(vals)
 	mean_vals = mean(vals)
 	stderr_vals = std(vals) / sqrt(length(vals))
-	@sprintf("\\num{%.3f} \$\\pm\$ \\num{%.3f}", mean_vals, stderr_vals) 
+	@sprintf("%.3f \\pm %.3f", mean_vals, stderr_vals) 
 end
 
 function policy_comparison_table(policy_results, policy_names)
@@ -357,4 +360,9 @@ function scenario_returns(scenario_csvs, geo_params, econ_params)
     hline!([0], color=:black, label="")
 end
 
-
+function print_human_sequences(actions, humans)
+    for (i, hlist) in enumerate(humans)
+        action_names = [a.name for a in actions[hlist]]
+        println("\\item Human Expert $i: ", join(action_names, ", "))
+    end
+end
