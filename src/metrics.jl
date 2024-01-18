@@ -14,6 +14,13 @@ function observation_cost(history; kwargs...)
     return sum(h.r for h in history[1:end-1])
 end
 
+function observation_duration(history; kwargs...)
+    if length(history) == 1
+        return 0
+    end
+    return sum(h.a.time for h in history[1:end-1])
+end
+
 function number_observed(history; kwargs...)
     return length(history) - 1
 end
@@ -90,6 +97,7 @@ function eval_single(pomdp, policy, s, updater = DiscreteUp(pomdp), b0 = initial
     results = Dict()
     results[:reward] = discounted_reward(history; pomdp)
     results[:obs_cost] = observation_cost(history)
+    results[:obs_duration] = observation_duration(history)
     results[:num_obs] = number_observed(history)
     results[:correct_scenario] = correct_scenario(history; pomdp)
     results[:correct_gonogo] = correct_gonogo(history; pomdp)
