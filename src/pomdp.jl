@@ -162,8 +162,13 @@ function get_discrete_observations(states, obs_actions, Nbins=fill(2,length(obs_
     for (a, Nbin) in zip(obs_actions, Nbins)
         obss = [rand(rng, a.obs_dist(rand(rng, states))) for _=1:Nsamples_per_bin*Nbin]
         X = hcat([collect(values(o)) for o in obss]...)
-        res = kmeans(X, Nbin; rng)
-        append!(discrete_obs, [Dict(zip(keys(obss[1]), res.centers[:, i])) for i in 1:Nbin])
+        Xmin = minimum(X, dims=2)
+        Xmax = maximum(X, dims=2)
+        ΔX = (Xmax .- Xmin)
+        Xnorm = (X .- Xmin) ./ ΔX
+        res = kmeans(Xnorm, Nbin; rng)
+        renormed = res.centers .* ΔX .+ Xmin
+        append!(discrete_obs, [Dict(zip(keys(obss[1]), renormed[:, i])) for i in 1:Nbin])
     end
     discrete_obs
 end

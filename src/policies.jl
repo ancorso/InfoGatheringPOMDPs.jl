@@ -80,3 +80,68 @@ function utility(π::OneStepGreedyPolicy, b)
 end
 
 POMDPs.action(π::OneStepGreedyPolicy, b::DiscreteBelief) = greedy(π, b).a
+
+POMDPs.value(π::OneStepGreedyPolicy, b::DiscreteBelief) = greedy(π, b).u
+
+POMDPs.value(π::OneStepGreedyPolicy, b::DiscreteBelief, a) = lookahead(π.pomdp, π, b, a, DiscreteUp(π.pomdp))
+
+
+function POMDPTools.actionvalues(π::OneStepGreedyPolicy, b::DiscreteBelief)
+    U(b) = utility(π, b) 
+    up = DiscreteUp(π.pomdp)
+    [lookahead(π.pomdp, U, b, a, up) for a in actions(π.pomdp)]
+end
+
+## Lower bounds for SARSOP:
+
+# Lower bound where you always walk away
+struct WalkAwayNextLB <: Solver
+end
+
+function POMDPs.solve(sol::WalkAwayNextLB, pomdp)
+    (;R,T) = pomdp
+    S = states(pomdp)
+    A = actions(pomdp)
+
+    Γ = [zeros(length(S)) for _ in eachindex(A)]
+    for a ∈ A
+        for s ∈ S
+            Γ[a][s] = R[s, a]
+        end
+    end
+
+    return AlphaVectorPolicy(pomdp, Γ, A)
+end
+
+# Essentially policy evaluation of the greedy policy after taking action a
+function alpha_a(pomdp, a, b0 = initialstate(pomdp))
+    #Function to compute the likelihood of observtion o when in state s and take action a
+    Posa(o,s,a) = sum(obs_weight(pomdp, s, a, s′, o)*ps′ for (s′, ps′) in transition(pomdp, s, a))
+    S = states(pomdp)
+
+    # Function that returns the terminal action that has the highest expected value under the updated belief
+    up = DiscreteUp(pomdp)
+    updates = Dict(o => update(up, b0, a, o) for o in observations(pomdp, a))
+    rsa = Dict(a => [reward(pomdp, s, a) for s in S] for a in pomdp.terminal_actions)
+    function a′(o)
+        b′ = updates[o]
+        ai = argmax([b′.b ⋅ rsa[a] for a in pomdp.terminal_actions])
+        return pomdp.terminal_actions[ai]
+    end
+
+    Uπ(s) = reward(pomdp, s, a) + discount(pomdp, a)*sum([Posa(o,s,a)*reward(pomdp, s, a′(o)) for o in observations(pomdp, a)], init=0)
+    return [Uπ(s) for s in S]
+end
+
+function onestep_alphavec_policy(pomdp, b0=initialstate(pomdp))
+    A = actions(pomdp)
+    Γ = [alpha_a(pomdp, a, b0) for a in A]
+    return AlphaVectorPolicy(pomdp, Γ, 1:length(A))
+end
+
+## If you have an alphavector policy already, this will return it when solve is called, so that you don't have to handle this modified sparse tabular thing
+struct PreSolved
+    αvecπ
+end
+
+POMDPs.solve(solver::PreSolved, pomdp) = solver.αvecπ

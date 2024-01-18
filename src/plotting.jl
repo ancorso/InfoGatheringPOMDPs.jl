@@ -17,6 +17,14 @@ function symbol_histogram(unique_syms, symarray; normalize = true, kwargs...)
     plot(1:length(syms), counts ./ norm, seriestype=:bar, xrotation=60, xticks=(1:length(syms), syms), ylabel="Frequency", label="", normalize=:pdf; bottom_margin, kwargs...)
 end
 
+# Plots a histogram of the action distribution for the aith action.
+function action_distribution(pomdp, ai, results, policy_name)
+    all_actions = actions(pomdp)
+    obs_actions = [a.name for a in all_actions if a isa ObservationAction]
+    acts = [as[ai].name for as in results[:actions]]
+    symbol_histogram(obs_actions, acts, size=(600,600), title = "Action $(ai) for $(policy_name)", dpi=300)
+end
+
 function combine_actions(actions)
     combined_actions = []
     for as in actions

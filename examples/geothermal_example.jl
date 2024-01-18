@@ -28,7 +28,7 @@ if length(ARGS) > 0
 end
 
 # Define the save directory. This will through an error if the savedir already exists
-savedir="./results/results_splitby_$(split_by)/"
+savedir="./results/updated_solver/"
 try mkdir(savedir) catch end
 
 # Define the scenarios and corresponding paths to CSV files
@@ -113,7 +113,8 @@ obs_actions = [
 ]
 
 # Set the number of observation bins for each action
-Nbins = [5, fill(2, length(obs_actions[2:end]))...]
+Nbins = fill(2, length(obs_actions[1:end]))
+Nbins[findall([a.name == "Drill 3 Wells" for a in obs_actions])] .= 5
 
 # Set the discount factor
 discount_factor = 0.90 # Annual discount factor
@@ -127,7 +128,7 @@ pomdps, test_sets = create_pomdps(
     Nbins, 
     rng_seed=pomdp_gen_seed, # Set the pomdp random seed 
     discount=discount_factor,
-    split_by=split_by
+    split_by=split_by,
 )
 
 # Writeout the table of actions
@@ -144,7 +145,7 @@ random_policy_0_1(pomdp) = EnsureParticleCount(RandPolicy(;pomdp, prob_terminal=
 random_policy_0_25(pomdp) = EnsureParticleCount(RandPolicy(;pomdp, prob_terminal=0.25), BestCurrentOption(pomdp), min_particles)
 random_policy_0_5(pomdp) = EnsureParticleCount(RandPolicy(;pomdp, prob_terminal=0.5), BestCurrentOption(pomdp), min_particles)
 # greedy_policy(pomdp) = EnsureParticleCount(OneStepGreedyPolicy(;pomdp), BestCurrentOption(pomdp), min_particles)
-sarsop_policy(pomdp) = EnsureParticleCount(solve(SARSOPSolver(max_time=10.0), pomdp), BestCurrentOption(pomdp), min_particles)
+sarsop_policy(pomdp) = EnsureParticleCount(solve(SARSOPSolver(max_time=10.,epsilon=1.0, init_lower = PreSolved(onestep_alphavec_policy(pomdp)), init_upper = NativeSARSOP.FastInformedBound(bel_res=1e-2, init_value = 0.0, max_time=100)), pomdp), BestCurrentOption(pomdp), min_particles)
 
 human1 = [19, 20, 17, 18, 15, 14, 10, 11, 12, 13, 6, 7, 8, 3, 5, 9]
 human2 = [9, 3, 5, 7, 12, 16]
